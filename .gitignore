@@ -1,0 +1,38 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Files for the ART/Dalvik VM
+*.odex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+
+# Gradle files
+.gradle/
+build/
+app/build/
+local.properties
+*.hprof
+
+# Android Studio
+*.iml
+.idea/
+.DS_Store
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop_pet/node_modules/
+
+# MCKAI specific
+app/schemas/
+app/proguard-rules.pro

@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MCKAI 模组工坊 - 项目文档</title>
+<style>
+body { font-family: 'Microsoft YaHei', 'SimSun', sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.8; color: #333; }
+h1 { color: #2E7D32; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; text-align: center; }
+h2 { color: #1B5E20; border-left: 4px solid #4CAF50; padding-left: 12px; margin-top: 40px; }
+h3 { color: #388E3C; margin-top: 24px; }
+h4 { color: #43A047; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+th { background: #E8F5E9; color: #1B5E20; }
+tr:nth-child(even) { background: #F1F8E9; }
+code { background: #F5F5F5; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 14px; }
+pre { background: #263238; color: #A5D6A7; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+pre code { background: none; color: inherit; padding: 0; }
+.highlight { background: #FFF9C4; padding: 2px 4px; }
+.box { border: 2px solid #4CAF50; border-radius: 8px; padding: 16px; margin: 16px 0; background: #F1F8E9; }
+.cover { text-align: center; padding: 60px 0; }
+.cover h1 { font-size: 36px; border: none; }
+.cover p { font-size: 18px; color: #666; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+a { color: #2E7D32; }
+.toc { background: #FAFAFA; border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin: 20px 0; }
+.toc ul { list-style: none; padding-left: 0; }
+.toc li { margin: 6px 0; }
+.page-break { page-break-before: always; }
+@page { margin: 2cm; }
+@media print { body { font-size: 11pt; } pre { font-size: 10pt; } }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="cover">
+<h1>MCKAI 模组工坊</h1>
+<p style="font-size: 22px; color: #2E7D32; margin-top: 20px;">AI 驱动的 Minecraft 模组开发助手</p>
+<br><br>
+<p>融合 RikkaHub + Operit + ModCrafting 三大开源项目核心功能</p>
+<br>
+<p><b>技术栈：</b>Android 原生 · Kotlin · Jetpack Compose · Material 3</p>
+<p><b>版本：</b>1.0.0</p>
+<p><b>日期：</b>2026年8月</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 目录 -->
+<div class="toc">
+<h2>目录</h2>
+<ul>
+<li>一、项目概述</li>
+<li>二、核心功能详解</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;2.1 多模型 AI 对话系统</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;2.2 工具调用系统</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;2.3 Agent 三模式引擎</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;2.4 模组工坊</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;2.5 项目管理</li>
+<li>三、技术架构</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;3.1 整体架构</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;3.2 数据层设计</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;3.3 LLM 客户端</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;3.4 工具系统</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;3.5 UI 层</li>
+<li>四、AI 模型配置指南</li>
+<li>五、工具系统详解</li>
+<li>六、Agent 引擎详解</li>
+<li>七、模组工坊详解</li>
+<li>八、界面设计规范</li>
+<li>九、数据库设计</li>
+<li>十、项目文件结构</li>
+<li>十一、开发指南</li>
+<li>十二、构建与部署</li>
+<li>十三、致谢与参考</li>
+</ul>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 一、项目概述 -->
+<h2>一、项目概述</h2>
+
+<h3>1.1 项目背景</h3>
+<p>MCKAI 模组工坊是一款基于 Android 原生开发的 AI 辅助 Minecraft 模组开发工具。它将三大知名开源项目的核心理念融合为一：</p>
+
+<table>
+<tr><th>参考项目</th><th>Stars</th><th>核心特性</th><th>MCKAI 集成情况</th></tr>
+<tr><td>RikkaHub</td><td>6.7K</td><td>多 Provider LLM 客户端、消息分支、Markdown 渲染、MCP 协议</td><td>多 Provider 支持、消息树结构、富文本渲染</td></tr>
+<tr><td>Operit</td><td>6.6K</td><td>AI Agent 平台、40+ 工具、工作流引擎、JS 扩展桥</td><td>工具注册中心、25+ 内置工具、Agent 三模式路由</td></tr>
+<tr><td>ModCrafting</td><td>15</td><td>Minecraft 模组 AI 生成、三模式路由、Vibecoding Agent</td><td>模组生成引擎、Plan/Execute 双阶段、5 平台脚手架</td></tr>
+</table>
+
+<h3>1.2 设计理念</h3>
+<ul>
+<li><b>AI 驱动</b>：自然语言描述即可生成完整可编译的模组项目</li>
+<li><b>多模型支持</b>：接入 OpenAI、Gemini、Claude、DeepSeek、通义千问等主流模型</li>
+<li><b>工具调用</b>：LLM 可调用文件操作、网络请求、计算、Minecraft 数据查询等工具</li>
+<li><b>平台全覆盖</b>：Fabric、Forge、NeoForge、Bedrock 基岩版、网易版</li>
+<li><b>原生体验</b>：Kotlin + Compose，Material 3 设计语言，暗色/亮色主题</li>
+</ul>
+
+<h3>1.3 技术栈</h3>
+<table>
+<tr><th>技术</th><th>版本</th><th>用途</th></tr>
+<tr><td>Kotlin</td><td>2.0.21</td><td>主开发语言</td></tr>
+<tr><td>Jetpack Compose</td><td>BOM 2024.12.01</td><td>声明式 UI 框架</td></tr>
+<tr><td>Material 3</td><td>BOM 管理</td><td>UI 设计系统</td></tr>
+<tr><td>Room</td><td>2.6.1</td><td>本地数据库（10 张表）</td></tr>
+<tr><td>OkHttp</td><td>4.12.0</td><td>HTTP 客户端（SSE 流式）</td></tr>
+<tr><td>Kotlin Serialization</td><td>1.7.3</td><td>JSON 序列化</td></tr>
+<tr><td>DataStore</td><td>1.1.1</td><td>键值对存储</td></tr>
+<tr><td>Navigation Compose</td><td>2.8.5</td><td>页面导航</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 二、核心功能详解 -->
+<h2>二、核心功能详解</h2>
+
+<h3>2.1 多模型 AI 对话系统</h3>
+
+<h4>支持的 Provider 类型</h4>
+<pre><code>支持 6 种 Provider 类型：
+├── OpenAI          (GPT-4.1, GPT-4o, o3, o4-mini)
+├── Gemini          (Gemini 2.5 Pro/Flash)
+├── Claude          (Claude Opus 4, Sonnet 4)
+├── OpenRouter      (200+ 模型统一网关)
+├── Ollama 本地     (Llama 3.1, Qwen 2.5, DeepSeek-R1)
+└── 自定义兼容      (任何 OpenAI 兼容 API)</code></pre>
+
+<h4>对话功能亮点</h4>
+<ul>
+<li><b>流式输出</b>：基于 SSE (Server-Sent Events) 的实时流式响应</li>
+<li><b>工具调用</b>：Function Calling，LLM 可自动调用外部工具</li>
+<li><b>推理过程展示</b>：显示模型的 Reasoning/Thinking 过程</li>
+<li><b>Provider/模型热切换</b>：对话中可随时切换模型</li>
+<li><b>API Key 池轮转</b>：支持多个 API Key 自动轮换</li>
+<li><b>自定义 HTTP 头</b>：支持自定义请求头</li>
+<li><b>连接测试</b>：一键测试 Provider 连接状态</li>
+<li><b>多模态支持</b>：文本 + 图片 + 文件内容</li>
+</ul>
+
+<h4>预置 Provider 配置</h4>
+<table>
+<tr><th>Provider</th><th>类型</th><th>推荐模型</th><th>Base URL</th></tr>
+<tr><td>OpenAI</td><td>OpenAI</td><td>GPT-4.1</td><td>https://api.openai.com/v1</td></tr>
+<tr><td>DeepSeek</td><td>自定义兼容</td><td>deepseek-chat</td><td>https://api.deepseek.com/v1</td></tr>
+<tr><td>通义千问</td><td>自定义兼容</td><td>qwen-max</td><td>https://dashscope.aliyuncs.com/compatible-mode/v1</td></tr>
+<tr><td>Kimi</td><td>自定义兼容</td><td>moonshot-v1-auto</td><td>https://api.moonshot.cn/v1</td></tr>
+<tr><td>豆包</td><td>自定义兼容</td><td>doubao-pro-256k</td><td>https://ark.cn-beijing.volces.com/api/v3</td></tr>
+<tr><td>Ollama 本地</td><td>Ollama</td><td>llama3.1</td><td>http://localhost:11434/v1</td></tr>
+<tr><td>Gemini</td><td>Gemini</td><td>gemini-2.5-flash</td><td>https://generativelanguage.googleapis.com</td></tr>
+<tr><td>Claude</td><td>Claude</td><td>claude-sonnet-4</td><td>https://api.anthropic.com</td></tr>
+<tr><td>OpenRouter</td><td>OpenRouter</td><td>openai/gpt-4.1</td><td>https://openrouter.ai/api/v1</td></tr>
+</table>
+
+<h3>2.2 工具调用系统</h3>
+<p>LLM 在对话中可自动调用以下工具，工具调用采用标准的 Function Calling 协议：</p>
+
+<table>
+<tr><th>类别</th><th>工具名称</th><th>功能描述</th><th>权限</th></tr>
+<tr><td rowspan="10">核心</td><td>calculator</td><td>数学表达式求值（支持三角函数、幂运算）</td><td>标准</td></tr>
+<tr><td>get_current_time</td><td>获取当前日期时间</td><td>标准</td></tr>
+<tr><td>generate_uuid</td><td>生成 UUID</td><td>标准</td></tr>
+<tr><td>random_number</td><td>生成随机数</td><td>标准</td></tr>
+<tr><td>format_json</td><td>JSON 格式化</td><td>标准</td></tr>
+<tr><td>encode_base64</td><td>Base64 编码</td><td>标准</td></tr>
+<tr><td>decode_base64</td><td>Base64 解码</td><td>标准</td></tr>
+<tr><td>hash_text</td><td>SHA-256/MD5 哈希</td><td>标准</td></tr>
+<tr><td>url_encode / url_decode</td><td>URL 编解码</td><td>标准</td></tr>
+<tr><td>get_system_info</td><td>设备系统信息</td><td>标准</td></tr>
+<tr><td rowspan="6">文件</td><td>read_file</td><td>读取文件内容</td><td>标准</td></tr>
+<tr><td>write_file</td><td>写入文件</td><td>管理员</td></tr>
+<tr><td>list_directory</td><td>列出目录内容</td><td>标准</td></tr>
+<tr><td>search_files</td><td>全文搜索文件</td><td>标准</td></tr>
+<tr><td>delete_file</td><td>删除文件</td><td>管理员</td></tr>
+<tr><td>create_directory</td><td>创建目录</td><td>管理员</td></tr>
+<tr><td rowspan="3">网络</td><td>http_request</td><td>发送 HTTP 请求</td><td>标准</td></tr>
+<tr><td>fetch_url</td><td>获取 URL 内容</td><td>标准</td></tr>
+<tr><td>web_search</td><td>DuckDuckGo 搜索</td><td>标准</td></tr>
+<tr><td rowspan="4">Minecraft</td><td>mc_version_info</td><td>MC 版本与加载器信息</td><td>标准</td></tr>
+<tr><td>mc_biome_data</td><td>生物群系数据查询</td><td>标准</td></tr>
+<tr><td>mc_recipe_check</td><td>合成配方查询</td><td>标准</td></tr>
+<tr><td>mc_mod_template</td><td>模组模板代码生成</td><td>标准</td></tr>
+<tr><td rowspan="2">记忆</td><td>save_memory</td><td>保存长期记忆</td><td>标准</td></tr>
+<tr><td>search_memory</td><td>搜索记忆库</td><td>标准</td></tr>
+</table>
+
+<h3>2.3 Agent 三模式引擎</h3>
+
+<h4>架构设计</h4>
+<pre><code>用户输入 → 模式分类器 → 路由到对应处理器
+                        ├── Chat 模式 → 普通对话（无工具调用）
+                        ├── Plan 模式 → 结构化规划（最多 15 轮只读分析）
+                        └── Execute 模式 → 逐步执行 + 工具调用（最多 40 轮）</code></pre>
+
+<h4>模式分类规则</h4>
+<table>
+<tr><th>模式</th><th>触发关键词</th><th>适用场景</th></tr>
+<tr><td>Chat</td><td>默认，无特殊关键词</td><td>日常问答、概念解释、头脑风暴</td></tr>
+<tr><td>Plan</td><td>"分析"、"规划"、"计划"、"设计"、"架构"、"怎么做"</td><td>需求分析、架构设计、方案制定</td></tr>
+<tr><td>Execute</td><td>"生成"、"写"、"创建"、"实现"、"开发"、"编码"、"build"</td><td>实际编码、文件生成、问题修复</td></tr>
+</table>
+
+<h4>Execute 模式工具循环</h4>
+<pre><code>循环（最多 40 轮）：
+  1. 发送消息给 LLM
+  2. 收集响应（文本 + 工具调用）
+  3. 如果有工具调用：
+     a. 执行工具
+     b. 将结果作为 tool message 加入历史
+     c. 继续下一轮
+  4. 如果无工具调用或达到上限：
+     a. 保存助手消息
+     b. 结束</code></pre>
+
+<h3>2.4 模组工坊</h3>
+
+<h4>四步生成流程</h4>
+<table>
+<tr><th>步骤</th><th>内容</th><th>说明</th></tr>
+<tr><td>1. 选择平台</td><td>5 种 Minecraft 平台</td><td>卡片式选择，显示版本和描述</td></tr>
+<tr><td>2. 描述模组</td><td>名称/Mod ID/版本/描述/功能</td><td>表单输入，选择 AI 模型</td></tr>
+<tr><td>3. AI 生成</td><td>工具调用 + 实时日志</td><td>进度条显示，可取消</td></tr>
+<tr><td>4. 查看结果</td><td>文件列表 + 导出 ZIP</td><td>保存到项目库</td></tr>
+</table>
+
+<h4>支持的平台</h4>
+<table>
+<tr><th>平台</th><th>MC 版本</th><th>加载器</th><th>生成内容</th></tr>
+<tr><td>Java Fabric</td><td>1.21.4</td><td>Fabric Loader 0.16.10</td><td>build.gradle + fabric.mod.json + 入口类</td></tr>
+<tr><td>Java Forge</td><td>1.20.1</td><td>Forge 47.3.0</td><td>build.gradle + mods.toml + 入口类</td></tr>
+<tr><td>Java NeoForge</td><td>1.21.1</td><td>NeoForge 21.1.x</td><td>build.gradle + mods.toml + 入口类</td></tr>
+<tr><td>Bedrock 基岩版</td><td>1.21</td><td>Behavior Pack</td><td>manifest.json + 脚本</td></tr>
+<tr><td>NetEase 网易版</td><td>1.20.10</td><td>网易模组系统</td><td>mod.json + Python 入口</td></tr>
+</table>
+
+<h4>快速创建模板</h4>
+<ul>
+<li><b>方块 (Block)</b>：自定义方块，含硬度、材质、掉落物配置</li>
+<li><b>物品 (Item)</b>：自定义物品，含堆叠上限、耐久度</li>
+<li><b>实体 (Entity)</b>：自定义生物，含 AI 目标、属性</li>
+<li><b>食物 (Food)</b>：食物物品，含饥饿值、饱和度、效果</li>
+<li><b>工具 (Tool)</b>：工具物品，含挖掘速度、耐久度</li>
+<li><b>盔甲 (Armor)</b>：盔甲套装，含防护值、耐久度</li>
+<li><b>合成配方 (Recipe)</b>：合成表定义</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- 三、技术架构 -->
+<h2>三、技术架构</h2>
+
+<h3>3.1 整体架构</h3>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│                     UI Layer                        │
+│  ChatScreen │ WorkshopScreen │ ProjectsScreen │ ... │
+├─────────────────────────────────────────────────────┤
+│                  ViewModel Layer                    │
+│  ChatVM │ WorkshopVM │ ProjectsVM │ SettingsVM     │
+├─────────────────────────────────────────────────────┤
+│                   Domain Layer                      │
+│  AgentEngine │ ToolRegistry │ WorkshopAgent         │
+├─────────────────────────────────────────────────────┤
+│                    Data Layer                       │
+│  LlmClient │ AppDatabase │ SettingsRepository       │
+├─────────────────────────────────────────────────────┤
+│                  Foundation Layer                   │
+│  OkHttp │ Room │ DataStore │ Kotlin Serialization   │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h3>3.2 数据层设计</h3>
+
+<h4>数据库实体（10 张表）</h4>
+<table>
+<tr><th>表名</th><th>用途</th><th>关键字段</th></tr>
+<tr><td>conversations</td><td>对话列表</td><td>id, title, branchParentId, assistantId, isFavorite</td></tr>
+<tr><td>messages</td><td>消息</td><td>id, conversationId, role, content, parentId, toolCallsJson</td></tr>
+<tr><td>message_attachments</td><td>消息附件</td><td>id, messageId, type, uri, base64Data</td></tr>
+<tr><td>assistants</td><td>自定义助手</td><td>id, name, systemPrompt, providerId, modelId</td></tr>
+<tr><td>memories</td><td>长期记忆</td><td>id, content, category, importance, accessCount</td></tr>
+<tr><td>workflows</td><td>工作流</td><td>id, name, triggerType, nodesJson, edgesJson</td></tr>
+<tr><td>tool_packages</td><td>工具包</td><td>id, name, type, toolsJson, isEnabled</td></tr>
+<tr><td>favorites</td><td>收藏夹</td><td>id, messageId, conversationId, note</td></tr>
+<tr><td>projects</td><td>模组项目</td><td>id, name, edition, mcVersion, modId</td></tr>
+<tr><td>project_files</td><td>项目文件</td><td>id, projectId, filePath, content, isGenerated</td></tr>
+</table>
+
+<h3>3.3 LLM 客户端</h3>
+<p>LlmClient 是核心的 HTTP 客户端，支持 6 种 Provider 类型的流式通信：</p>
+
+<h4>请求构建流程</h4>
+<pre><code>buildRequest(provider, systemPrompt, messages, tools)
+  ├── OpenAI/OpenRouter/Ollama/Custom
+  │   ├── URL: {baseUrl}/chat/completions
+  │   ├── Auth: Bearer {apiKey}
+  │   └── Body: OpenAiRequest (model, messages, tools, stream=true)
+  ├── Gemini
+  │   ├── URL: {baseUrl}/v1beta/models/{model}:streamGenerateContent?alt=sse
+  │   ├── Auth: x-goog-api-key
+  │   └── Body: GeminiRequest (contents, systemInstruction, tools)
+  └── Claude
+      ├── URL: {baseUrl}/v1/messages
+      ├── Auth: x-api-key + anthropic-version: 2023-06-01
+      └── Body: ClaudeRequest (model, messages, tools, stream=true)</code></pre>
+
+<h4>响应解析</h4>
+<p>使用 SseParser 解析 SSE 流，自动检测 SSE 和 NDJSON 格式：</p>
+<ul>
+<li><b>SSE 模式</b>：标准 Server-Sent Events，以 <code>data:</code> 前缀标识</li>
+<li><b>NDJSON 模式</b>：每行一个 JSON 对象</li>
+<li><b>空行分隔</b>：空行表示事件块结束</li>
+<li><b>[DONE]</b>：OpenAI 协议结束标记</li>
+</ul>
+
+<h3>3.4 工具系统</h3>
+<pre><code>ToolRegistry（注册中心）
+├── ConcurrentHashMap&lt;String, Pair&lt;ToolMetadata, Handler&gt;&gt;
+├── ToolMetadata（工具元数据）
+│   ├── name: String
+│   ├── description: String
+│   ├── parameters: JsonObject (JSON Schema)
+│   ├── required: List&lt;String&gt;
+│   ├── permission: ToolPermission (STANDARD/ADMIN/ROOT)
+│   └── category: String
+├── handler: suspend (JsonObject) -> String
+└── getToolsForLlm(): List&lt;ToolDef&gt; (LLM 可用工具定义)</code></pre>
+
+<h3>3.5 UI 层</h3>
+
+<h4>导航结构</h4>
+<pre><code>AppNavHost
+├── chatlist (底部 Tab 1)
+│   ├── chat/{convId} (对话详情)
+│   └── chat/new (新建对话)
+├── workshop (底部 Tab 2)
+├── projects (底部 Tab 3)
+│   └── project/{projectId} (项目详情)
+│       └── editor/{fileId} (文件编辑)
+├── settings (底部 Tab 4)
+│   └── provider/{providerId} (Provider 编辑)
+└── provider/new (添加 Provider)</code></pre>
+
+<div class="page-break"></div>
+
+<!-- 四、AI 模型配置指南 -->
+<h2>四、AI 模型配置指南</h2>
+
+<h3>4.1 使用 OpenRouter（推荐）</h3>
+<p>OpenRouter 是统一的模型网关，一个 API Key 即可访问 200+ 模型：</p>
+<pre><code>Provider: OpenRouter
+类型:     OpenRouter
+Base URL: https://openrouter.ai/api/v1
+API Key:  sk-or-v1-xxxxx
+模型:     openai/gpt-4.1
+          anthropic/claude-sonnet-4
+          google/gemini-2.5-flash
+          deepseek/deepseek-chat</code></pre>
+
+<h3>4.2 使用 Ollama 本地模型</h3>
+<p>无需 API Key，直接连接本地 Ollama 服务：</p>
+<pre><code>Provider: Ollama 本地
+类型:     Ollama (本地)
+Base URL: http://localhost:11434/v1
+API Key:  ollama
+模型:     llama3.1
+          qwen2.5
+          deepseek-r1
+          codellama</code></pre>
+
+<h3>4.3 自定义 OpenAI 兼容 API</h3>
+<pre><code>Provider: 自定义名称
+类型:     自定义 OpenAI 兼容
+Base URL: https://your-api.com/v1
+API Key:  your-key-here
+模型:     model-name-1
+          model-name-2</code></pre>
+
+<h3>4.4 API Key 池配置</h3>
+<p>支持配置多个 API Key 自动轮转，适用于高并发场景：</p>
+<ul>
+<li>在 Provider 编辑页面的 API Key 字段中，每行输入一个 Key</li>
+<li>系统会自动轮转使用</li>
+<li>当某个 Key 达到限额时自动切换到下一个</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- 五、工具系统详解 -->
+<h2>五、工具系统详解</h2>
+
+<h3>5.1 工具调用流程</h3>
+<pre><code>用户消息 → LLM 分析 → 决定调用工具 → 返回 tool_calls
+                                          ↓
+              ToolRegistry.execute(name, args) → 结果
+                                          ↓
+              结果作为 tool message 发回 LLM → 继续生成</code></pre>
+
+<h3>5.2 工具参数格式（JSON Schema）</h3>
+<pre><code>{
+  "type": "object",
+  "properties": {
+    "expression": {
+      "type": "string",
+      "description": "数学表达式，如 (3+5)*2"
+    }
+  },
+  "required": ["expression"]
+}</code></pre>
+
+<h3>5.3 添加自定义工具</h3>
+<pre><code>// 在 domain/tools/ 下创建或编辑
+r.register(ToolMetadata(
+    name = "my_custom_tool",
+    description = "工具的功能描述",
+    parameters = buildJsonObject { ... },
+    category = "custom"
+) { args ->
+    val input = args["param"]?.jsonPrimitive?.content
+    "执行结果: $input"
+})</code></pre>
+
+<h3>5.4 权限分级</h3>
+<table>
+<tr><th>级别</th><th>说明</th><th>示例工具</th></tr>
+<tr><td>STANDARD</td><td>标准权限，可安全执行</td><td>calculator, get_current_time, web_search</td></tr>
+<tr><td>ADMIN</td><td>管理员权限，可能修改文件系统</td><td>write_file, delete_file, execute_command</td></tr>
+<tr><td>ROOT</td><td>Root 权限，系统级操作</td><td>（预留，暂未实现）</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 六、Agent 引擎详解 -->
+<h2>六、Agent 引擎详解</h2>
+
+<h3>6.1 模式分类算法</h3>
+<pre><code>fun classifyMode(input: String): AgentMode {
+    // 1. 检查显式命令
+    if (input.startsWith("/chat")) return CHAT
+    if (input.startsWith("/plan")) return PLAN
+    if (input.startsWith("/exec")) return EXECUTE
+
+    // 2. 关键词匹配
+    val execKeywords = ["生成", "写", "创建", "实现", "开发", "编码"]
+    if (execKeywords.any { input.contains(it) }) return EXECUTE
+
+    val planKeywords = ["分析", "规划", "计划", "设计", "架构"]
+    if (planKeywords.any { input.contains(it) }) return PLAN
+
+    // 3. 默认 Chat
+    return CHAT
+}</code></pre>
+
+<h3>6.2 Plan 模式输出格式</h3>
+<pre><code>## 目标
+简要描述要做什么
+
+## 步骤
+1. 第一步...
+2. 第二步...
+...
+
+## 需要的文件
+- 文件路径和用途
+
+## 注意事项
+潜在问题和解决方案</code></pre>
+
+<h3>6.3 Execute 模式工具循环</h3>
+<p>最多 40 轮工具调用循环：</p>
+<ol>
+<li>发送消息给 LLM（含系统提示 + 历史 + 用户输入）</li>
+<li>LLM 返回文本 + tool_calls</li>
+<li>执行所有工具调用</li>
+<li>将工具结果作为 tool message 加入历史</li>
+<li>继续下一轮，直到无工具调用或达到上限</li>
+</ol>
+
+<div class="page-break"></div>
+
+<!-- 七、模组工坊详解 -->
+<h2>七、模组工坊详解</h2>
+
+<h3>7.1 生成流程详细说明</h3>
+
+<h4>Step 1: 选择平台</h4>
+<ul>
+<li>5 个平台卡片，点击选择</li>
+<li>显示平台名称、默认 MC 版本、描述</li>
+<li>选择后自动设置 MC 版本</li>
+</ul>
+
+<h4>Step 2: 描述模组</h4>
+<ul>
+<li><b>模组名称</b>：必填，英文名称</li>
+<li><b>Mod ID</b>：可选，默认从名称生成</li>
+<li><b>MC 版本</b>：默认平台版本，可修改</li>
+<li><b>描述</b>：模组的功能描述</li>
+<li><b>功能需求</b>：详细的功能列表</li>
+<li><b>AI 模型</b>：选择用于生成的模型</li>
+</ul>
+
+<h4>Step 3: AI 生成</h4>
+<ul>
+<li>Agent 引擎自动运行</li>
+<li>实时显示生成进度和日志</li>
+<li>显示已生成文件数量</li>
+<li>可随时取消</li>
+</ul>
+
+<h4>Step 4: 查看结果</h4>
+<ul>
+<li>显示生成的文件列表</li>
+<li>成功/失败状态</li>
+<li>可导出为 ZIP 项目</li>
+<li>可保存到项目库</li>
+<li>可重新生成</li>
+</ul>
+
+<h3>7.2 生成的项目结构</h3>
+
+<h4>Fabric 项目</h4>
+<pre><code>mymod/
+├── build.gradle              # Fabric Loom 构建脚本
+├── gradle.properties         # 版本配置
+├── settings.gradle           # 项目设置
+├── src/main/
+│   ├── java/com/example/
+│   │   └── MyMod.java        # 主类（ClientModInitializer）
+│   └── resources/
+│       ├── fabric.mod.json   # 模组元数据
+│       └── assets/mymod/
+│           └── icon.png      # 模组图标</code></pre>
+
+<h4>Forge 项目</h4>
+<pre><code>mymod/
+├── build.gradle
+├── gradle.properties
+├── src/main/
+│   ├── java/com/example/
+│   │   └── MyMod.java        # @Mod 注解入口
+│   └── resources/
+│       └── META-INF/
+│           └── mods.toml     # Forge 模组描述</code></pre>
+
+<h3>7.3 提示词工程</h3>
+<p>AgentPrompts 模块管理所有 AI 提示词：</p>
+<ul>
+<li><b>COMMON_RULES</b>：通用生成规则（6 条）</li>
+<li><b>platformInstructions()</b>：平台特定指令</li>
+<li><b>systemPrompt()</b>：系统提示词</li>
+<li><b>initialUserPrompt()</b>：初始用户提示</li>
+<li><b>reviewPrompt()</b>：审查提示</li>
+<li><b>generationTools()</b>：生成工具定义</li>
+<li><b>reviewTools()</b>：审查工具定义</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- 八、界面设计规范 -->
+<h2>八、界面设计规范</h2>
+
+<h3>8.1 底部导航</h3>
+<pre><code>┌──────────────────────────────────┐
+│          内容区域                 │
+├──────────────────────────────────┤
+│  💬 对话  │  🔨 工坊  │  📁 项目  │  ⚙️ 设置  │
+└──────────────────────────────────┘</code></pre>
+
+<h3>8.2 对话界面</h3>
+<pre><code>┌──────────────────────────────────┐
+│  ← 对话            GPT-4.1  🔧  │
+├──────────────────────────────────┤
+│     ┌─────────────────┐          │
+│     │ 用户消息         │    👤   │
+│     └─────────────────┘          │
+│  ┌─────────────────┐             │
+│  │ AI 回复内容      │    🤖     │
+│  │ 支持 Markdown    │             │
+│  │ 代码高亮         │             │
+│  └─────────────────┘             │
+├──────────────────────────────────┤
+│  [输入消息...]          [发送 ➤] │
+└──────────────────────────────────┘</code></pre>
+
+<h3>8.3 工坊界面</h3>
+<pre><code>┌──────────────────────────────────┐
+│  ← 选择平台                       │
+├──────────────────────────────────┤
+│  ☑ Java Fabric    1.21.4         │
+│  ☐ Java Forge     1.20.1         │
+│  ☐ Java NeoForge  1.21.1         │
+│  ☐ Bedrock 基岩版  1.21          │
+│  ☐ NetEase 网易版  1.20.10       │
+└──────────────────────────────────┘</code></pre>
+
+<h3>8.4 设置界面</h3>
+<pre><code>┌──────────────────────────────────┐
+│  设置                             │
+├──────────────────────────────────┤
+│  外观                             │
+│  [跟随系统] [浅色] [深色]          │
+│                                  │
+│  AI 模型                     [+] │
+│  │ OpenAI / GPT-4.1           │  │
+│  │ DeepSeek / deepseek-chat   │  │
+│                                  │
+│  功能                             │
+│  记忆功能              [ON/OFF]  │
+│                                  │
+│  关于                             │
+│  MCKAI 模组工坊 v1.0.0           │
+└──────────────────────────────────┘</code></pre>
+
+<h3>8.5 主题配色</h3>
+<table>
+<tr><th>颜色名称</th><th>色值</th><th>用途</th></tr>
+<tr><td>Grass</td><td>#4CAF50</td><td>主色调（Minecraft 草方块）</td></tr>
+<tr><td>GrassDark</td><td>#2E7D32</td><td>深色变体</td></tr>
+<tr><td>GrassLight</td><td>#81C784</td><td>浅色变体</td></tr>
+<tr><td>DarkBg</td><td>#1A1C1A</td><td>暗色模式背景</td></tr>
+<tr><td>DarkSurface</td><td>#1A1C1A</td><td>暗色模式表面</td></tr>
+<tr><td>DarkSurfaceHigh</td><td>#2A2D2A</td><td>暗色模式高表面</td></tr>
+<tr><td>LightBg</td><td>#F8FAF5</td><td>亮色模式背景</td></tr>
+<tr><td>LightSurface</td><td>#F8FAF5</td><td>亮色模式表面</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 九、数据库设计 -->
+<h2>九、数据库设计</h2>
+
+<h3>9.1 ER 关系图</h3>
+<pre><code>conversations 1──N messages
+                   messages 1──N message_attachments
+conversations N──1 assistants
+messages N──N favorites (via messageId)
+projects 1──N project_files
+memories (独立表)
+workflows (独立表)
+tool_packages (独立表)</code></pre>
+
+<h3>9.2 表结构详情</h3>
+
+<h4>conversations 表</h4>
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>INTEGER PRIMARY KEY</td><td>自增主键</td></tr>
+<tr><td>title</td><td>TEXT</td><td>对话标题</td></tr>
+<tr><td>createdAt</td><td>INTEGER</td><td>创建时间戳</td></tr>
+<tr><td>updatedAt</td><td>INTEGER</td><td>更新时间戳</td></tr>
+<tr><td>branchParentId</td><td>INTEGER?</td><td>分支父对话 ID</td></tr>
+<tr><td>branchLabel</td><td>TEXT?</td><td>分支标签</td></tr>
+<tr><td>assistantId</td><td>INTEGER?</td><td>绑定的助手 ID</td></tr>
+<tr><td>providerId</td><td>TEXT?</td><td>使用的 Provider ID</td></tr>
+<tr><td>modelId</td><td>TEXT?</td><td>使用的模型 ID</td></tr>
+<tr><td>metadata</td><td>TEXT?</td><td>扩展元数据 JSON</td></tr>
+<tr><td>isFavorite</td><td>INTEGER</td><td>是否收藏</td></tr>
+</table>
+
+<h4>messages 表</h4>
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>INTEGER PRIMARY KEY</td><td>自增主键</td></tr>
+<tr><td>conversationId</td><td>INTEGER</td><td>所属对话 ID（外键）</td></tr>
+<tr><td>role</td><td>TEXT</td><td>消息角色（user/assistant/tool）</td></tr>
+<tr><td>content</td><td>TEXT</td><td>消息内容</td></tr>
+<tr><td>parentId</td><td>INTEGER?</td><td>消息树父节点</td></tr>
+<tr><td>reasoningContent</td><td>TEXT?</td><td>推理/思考过程</td></tr>
+<tr><td>toolCallId</td><td>TEXT?</td><td>工具调用 ID</td></tr>
+<tr><td>toolCallsJson</td><td>TEXT?</td><td>工具调用 JSON</td></tr>
+<tr><td>isFavorite</td><td>INTEGER</td><td>是否收藏</td></tr>
+<tr><td>createdAt</td><td>INTEGER</td><td>创建时间戳</td></tr>
+<tr><td>metadata</td><td>TEXT?</td><td>扩展元数据 JSON</td></tr>
+</table>
+
+<h4>projects 表</h4>
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>INTEGER PRIMARY KEY</td><td>自增主键</td></tr>
+<tr><td>name</td><td>TEXT</td><td>项目名称</td></tr>
+<tr><td>edition</td><td>TEXT</td><td>平台类型</td></tr>
+<tr><td>mcVersion</td><td>TEXT</td><td>MC 版本</td></tr>
+<tr><td>modId</td><td>TEXT?</td><td>Mod ID</td></tr>
+<tr><td>description</td><td>TEXT?</td><td>项目描述</td></tr>
+<tr><td>packageName</td><td>TEXT?</td><td>Java 包名</td></tr>
+<tr><td>author</td><td>TEXT?</td><td>作者</td></tr>
+<tr><td>version</td><td>TEXT</td><td>版本号</td></tr>
+<tr><td>createdAt</td><td>INTEGER</td><td>创建时间戳</td></tr>
+<tr><td>updatedAt</td><td>INTEGER</td><td>更新时间戳</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 十、项目文件结构 -->
+<h2>十、项目文件结构</h2>
+
+<pre><code>com.mckai.app/
+├── MCKAIApp.kt                    # Application + DI 容器
+├── MainActivity.kt                # 单 Activity 入口
+│
+├── data/
+│   ├── db/
+│   │   ├── AppDatabase.kt         # Room 数据库（10 实体）
+│   │   ├── entity/                 # 10 个实体类
+│   │   │   ├── ConversationEntity.kt
+│   │   │   ├── MessageEntity.kt
+│   │   │   ├── MessageAttachmentEntity.kt
+│   │   │   ├── AssistantEntity.kt
+│   │   │   ├── MemoryEntity.kt
+│   │   │   ├── WorkflowEntity.kt
+│   │   │   ├── ToolPackageEntity.kt
+│   │   │   ├── FavoriteEntity.kt
+│   │   │   ├── ProjectEntity.kt
+│   │   │   └── ProjectFileEntity.kt
+│   │   └── dao/                   # 10 个 DAO 接口
+│   │       ├── ConversationDao.kt
+│   │       ├── MessageDao.kt
+│   │       ├── MessageAttachmentDao.kt
+│   │       ├── AssistantDao.kt
+│   │       ├── MemoryDao.kt
+│   │       ├── WorkflowDao.kt
+│   │       ├── ToolPackageDao.kt
+│   │       ├── FavoriteDao.kt
+│   │       ├── ProjectDao.kt
+│   │       └── ProjectFileDao.kt
+│   ├── llm/
+│   │   ├── LlmClient.kt           # 核心 LLM HTTP 客户端（630 行）
+│   │   ├── LlmModels.kt           # 共享数据模型
+│   │   ├── ProviderConfig.kt      # Provider 配置 + 9 预设
+│   │   ├── SseParser.kt           # SSE/NDJSON 流解析器
+│   │   └── StreamAccumulator.kt   # 流聚合器
+│   └── repo/
+│       ├── SettingsRepository.kt  # DataStore 设置
+│       └── ProjectRepository.kt   # Room 数据访问
+│
+├── domain/
+│   ├── agent/
+│   │   └── AgentEngine.kt         # 三模式 Agent 引擎（180 行）
+│   ├── tools/
+│   │   ├── ToolRegistry.kt        # 工具注册中心
+│   │   ├── CoreTools.kt           # 10 个核心工具
+│   │   ├── FileTools.kt           # 6 个文件工具
+│   │   ├── NetworkTools.kt        # 3 个网络工具
+│   │   ├── MinecraftTools.kt      # 4 个 MC 工具
+│   │   └── MemoryTools.kt         # 2 个记忆工具
+│   └── workshop/
+│       ├── AgentPrompts.kt        # 提示词工程
+│       ├── WorkshopAgent.kt       # 模组生成 Agent
+│       ├── ModEdition.kt          # 5 平台枚举 + 数据模型
+│       └── ModExporter.kt         # ZIP 导出 + 脚手架
+│
+├── ui/
+│   ├── navigation/
+│   │   ├── AppNavHost.kt          # 路由定义
+│   │   └── AppNavGraph.kt         # 导航图
+│   ├── theme/
+│   │   └── Theme.kt               # Material 3 主题
+│   ├── components/
+│   │   └── MarkdownText.kt        # Markdown 渲染器
+│   ├── chat/
+│   │   ├── ChatViewModel.kt       # 聊天 VM（工具循环）
+│   │   ├── ChatScreen.kt          # 聊天界面
+│   │   ├── ChatListViewModel.kt   # 列表 VM
+│   │   └── ChatListScreen.kt      # 对话列表
+│   ├── workshop/
+│   │   ├── WorkshopViewModel.kt   # 工坊 VM
+│   │   └── WorkshopScreen.kt      # 工坊界面（4 步）
+│   ├── projects/
+│   │   ├── ProjectsViewModel.kt   # 项目列表 VM
+│   │   ├── ProjectsScreen.kt      # 项目列表
+│   │   ├── ProjectDetailViewModel.kt
+│   │   ├── ProjectDetailScreen.kt # 项目详情
+│   │   ├── FileEditorViewModel.kt # 文件编辑 VM
+│   │   └── FileEditorScreen.kt    # 文件编辑器
+│   └── settings/
+│       ├── SettingsViewModel.kt   # 设置 VM
+│       ├── SettingsScreen.kt      # 设置界面
+│       └── ProviderEditScreen.kt  # Provider 编辑
+
+总计：58 个 Kotlin 源文件，约 8,000+ 行代码</code></pre>
+
+<div class="page-break"></div>
+
+<!-- 十一、开发指南 -->
+<h2>十一、开发指南</h2>
+
+<h3>11.1 构建项目</h3>
+<pre><code># 前提条件
+# - JDK 17
+# - Android SDK (platforms;android-35, build-tools;35.0.0)
+# - Gradle 8.11.1
+
+# 构建 Debug APK
+gradle :app:assembleDebug
+
+# 输出路径
+app/build/outputs/apk/debug/app-debug.apk</code></pre>
+
+<h3>11.2 添加新的 Provider</h3>
+<ol>
+<li>在 <code>ProviderType.kt</code> 中添加枚举值</li>
+<li>在 <code>LlmClient.kt</code> 的 <code>buildRequest()</code> 中添加请求构建逻辑</li>
+<li>在 <code>LlmClient.kt</code> 的 <code>parsePayload()</code> 中添加响应解析逻辑</li>
+<li>在 <code>ProviderPresets.builtIn()</code> 中添加预设配置</li>
+</ol>
+
+<h3>11.3 添加新的工具</h3>
+<ol>
+<li>在 <code>domain/tools/</code> 下创建或编辑工具文件</li>
+<li>使用 <code>r.register(ToolMetadata(...), handler = { ... })</code> 注册</li>
+<li>工具会自动被 <code>ToolRegistry.buildDefault()</code> 加载</li>
+<li>LLM 会通过 <code>getToolsForLlm()</code> 获取工具定义</li>
+</ol>
+
+<h3>11.4 数据库迁移</h3>
+<p>当前使用 <code>fallbackToDestructiveMigration()</code>，生产环境应编写 Migration：</p>
+<pre><code>val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE conversations ADD COLUMN assistantId INTEGER")
+    }
+}
+// 在 AppDatabase.build() 中添加
+.addMigrations(MIGRATION_1_2)</code></pre>
+
+<h3>11.5 代码规范</h3>
+<ul>
+<li>使用 Kotlin 官方代码风格</li>
+<li>ViewModel 使用 AndroidViewModel + Factory</li>
+<li>状态管理使用 StateFlow + MutableStateFlow</li>
+<li>协程使用 viewModelScope.launch</li>
+<li>Room 使用 Flow 观察数据变化</li>
+<li>UI 组件使用 Compose Material 3</li>
+<li>不添加不必要的注释</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- 十二、构建与部署 -->
+<h2>十二、构建与部署</h2>
+
+<h3>12.1 构建要求</h3>
+<table>
+<tr><th>要求</th><th>版本</th><th>说明</th></tr>
+<tr><td>JDK</td><td>17</td><td>Java 开发工具包</td></tr>
+<tr><td>Android SDK</td><td>API 35</td><td>Android 开发工具包</td></tr>
+<tr><td>Build Tools</td><td>35.0.0</td><td>Android 构建工具</td></tr>
+<tr><td>Gradle</td><td>8.11.1</td><td>构建工具</td></tr>
+<tr><td>Kotlin</td><td>2.0.21</td><td>编译器</td></tr>
+</table>
+
+<h3>12.2 环境变量</h3>
+<pre><code># Android SDK 路径（local.properties 或环境变量）
+sdk.dir=C\:\\Users\\username\\Android\\Sdk
+
+# Gradle 缓存
+GRADLE_USER_HOME=C\:\\Users\\username\\.gradle</code></pre>
+
+<h3>12.3 构建命令</h3>
+<pre><code># Debug 构建
+gradle :app:assembleDebug
+
+# Release 构建（需要签名配置）
+gradle :app:assembleRelease
+
+# 清理构建
+gradle clean
+
+# 构建并安装到设备
+gradle :app:installDebug</code></pre>
+
+<h3>12.4 APK 信息</h3>
+<table>
+<tr><th>属性</th><th>值</th></tr>
+<tr><td>包名</td><td>com.mckai.app</td></tr>
+<tr><td>版本号</td><td>1.0.0 (versionCode=1)</td></tr>
+<tr><td>最低支持</td><td>Android 8.0 (API 26)</td></tr>
+<tr><td>目标版本</td><td>Android 15 (API 35)</td></tr>
+<tr><td>APK 大小</td><td>约 16-20 MB</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 十三、致谢与参考 -->
+<h2>十三、致谢与参考</h2>
+
+<h3>13.1 参考项目</h3>
+<table>
+<tr><th>项目</th><th>作者</th><th>Stars</th><th>贡献</th></tr>
+<tr><td>RikkaHub</td><td>rererere</td><td>6.7K</td><td>多 Provider 架构、消息分支、Markdown 渲染</td></tr>
+<tr><td>Operit</td><td>AAswordman</td><td>6.6K</td><td>Agent 工具系统、工作流引擎、JS 扩展桥</td></tr>
+<tr><td>ModCrafting</td><td>newstarbar</td><td>15</td><td>三模式路由、Vibecoding Agent、防御性护栏</td></tr>
+</table>
+
+<h3>13.2 技术参考</h3>
+<ul>
+<li><a href="https://developer.android.com/jetpack/compose">Jetpack Compose 官方文档</a></li>
+<li><a href="https://developer.android.com/topic/libraries/architecture/room">Room 数据库</a></li>
+<li><a href="https://developer.android.com/topic/libraries/architecture/viewmodel">ViewModel 指南</a></li>
+<li><a href="https://kotlinlang.org/docs/serialization.html">Kotlin Serialization</a></li>
+<li><a href="https://square.github.io/okhttp/">OkHttp 文档</a></li>
+<li><a href="https://platform.openai.com/docs/api-reference">OpenAI API 参考</a></li>
+<li><a href="https://docs.anthropic.com/claude/reference">Claude API 参考</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs">Gemini API 参考</a></li>
+</ul>
+
+<h3>13.3 开源依赖</h3>
+<table>
+<tr><th>库</th><th>版本</th><th>协议</th></tr>
+<tr><td>OkHttp</td><td>4.12.0</td><td>Apache 2.0</td></tr>
+<tr><td>KotlinX Serialization</td><td>1.7.3</td><td>Apache 2.0</td></tr>
+<tr><td>KotlinX Coroutines</td><td>1.9.0</td><td>Apache 2.0</td></tr>
+<tr><td>Room</td><td>2.6.1</td><td>Apache 2.0</td></tr>
+<tr><td>DataStore</td><td>1.1.1</td><td>Apache 2.0</td></tr>
+</table>
+
+<hr>
+<p style="text-align: center; color: #666; margin-top: 40px;">
+<b>MCKAI 模组工坊</b> — 让 AI 帮你开发 Minecraft 模组<br>
+版本 1.0.0 | 2026年8月
+</p>
+
+</body>
+</html>

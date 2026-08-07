@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MCKAI 模组工坊</string>
+    <string name="app_name_short">MCKAI</string>
+    <string name="chat_tab">聊天</string>
+    <string name="workshop_tab">模组工坊</string>
+    <string name="projects_tab">项目</string>
+    <string name="settings_tab">设置</string>
+</resources>
