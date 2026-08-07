@@ -24,6 +24,7 @@ sealed class Screen(val route: String) {
         fun createRoute(providerId: String) = "provider/$providerId"
     }
     object ProviderNew : Screen("provider/new")
+    object About : Screen("about")
     object Workflow : Screen("workflows")
     object Assistants : Screen("assistants")
     object Memory : Screen("memory")

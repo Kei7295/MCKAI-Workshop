@@ -33,7 +33,7 @@ fun ProjectDetailScreen(
             )
         }
     ) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             state.project?.let { project ->
                 Text(project.description ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))

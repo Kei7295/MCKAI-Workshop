@@ -209,7 +209,7 @@ fun GeneratingStep(state: WorkshopUiState, onCancel: () -> Unit) {
         topBar = { TopAppBar(title = { Text("生成中") }) }
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp),
+            Modifier.fillMaxSize().padding(padding).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val progress = state.progress

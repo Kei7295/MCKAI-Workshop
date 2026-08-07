@@ -1,6 +1,7 @@
 package com.mckai.app.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,10 +15,11 @@ import com.mckai.app.ui.projects.ProjectDetailScreen
 import com.mckai.app.ui.projects.FileEditorScreen
 import com.mckai.app.ui.settings.SettingsScreen
 import com.mckai.app.ui.settings.ProviderEditScreen
+import com.mckai.app.ui.settings.AboutScreen
 
 @Composable
-fun AppNavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Screen.ChatList.route) {
+fun AppNavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+    NavHost(navController = navController, startDestination = Screen.ChatList.route, modifier = modifier) {
         composable(Screen.ChatList.route) {
             ChatListScreen(
                 onNewChat = { navController.navigate(Screen.NewChat.route) },
@@ -69,7 +71,8 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onEditProvider = { id -> navController.navigate(Screen.ProviderEdit.createRoute(id)) },
-                onNewProvider = { navController.navigate(Screen.ProviderNew.route) }
+                onNewProvider = { navController.navigate(Screen.ProviderNew.route) },
+                onAbout = { navController.navigate(Screen.About.route) }
             )
         }
         composable(
@@ -86,6 +89,9 @@ fun AppNavGraph(navController: NavHostController) {
                 providerId = null,
                 onBack = { navController.popBackStack() }
             )
+        }
+        composable(Screen.About.route) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
     }
 }

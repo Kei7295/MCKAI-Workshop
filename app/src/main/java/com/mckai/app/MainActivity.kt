@@ -67,6 +67,6 @@ fun MainApp() {
             }
         }
     ) { padding ->
-        AppNavGraph(navController)
+        AppNavGraph(navController, Modifier.padding(padding))
     }
 }

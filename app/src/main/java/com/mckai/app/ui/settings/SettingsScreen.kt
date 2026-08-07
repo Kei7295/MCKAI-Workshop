@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun SettingsScreen(
     onEditProvider: (String) -> Unit,
     onNewProvider: () -> Unit,
+    onAbout: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
     val providers by viewModel.providers.collectAsState()
@@ -27,7 +28,11 @@ fun SettingsScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("设置") }) }
     ) { padding ->
-        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             // Theme
             item {
                 Text("外观", style = MaterialTheme.typography.titleMedium)
@@ -76,13 +81,20 @@ fun SettingsScreen(
                 }
             }
 
-            // About
+            // About - clickable card
             item {
-                Spacer(Modifier.height(16.dp))
-                Text("关于", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Text("MCKAI 模组工坊 v1.0.0", style = MaterialTheme.typography.bodyMedium)
-                Text("融合 RikkaHub + Operit + ModCrafting 的 AI 模组开发助手", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onAbout() }
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("关于", style = MaterialTheme.typography.titleMedium)
+                            Text("MCKAI 模组工坊 v1.0.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Filled.ChevronRight, null)
+                    }
+                }
             }
         }
     }
