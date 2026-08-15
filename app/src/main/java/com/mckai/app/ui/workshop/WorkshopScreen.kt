@@ -21,8 +21,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mckai.app.domain.workshop.ModEdition
+import com.mckai.app.ui.components.AppleActionSheet
+import com.mckai.app.ui.components.AppleCard
+import com.mckai.app.ui.components.AppleDestructiveRow
+import com.mckai.app.ui.components.AppleField
+import com.mckai.app.ui.components.AppleNavBar
+import com.mckai.app.ui.components.ApplePrimaryButton
+import com.mckai.app.ui.components.AppleRow
+import com.mckai.app.ui.components.AppleSheetOption
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkshopScreen(viewModel: WorkshopViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
@@ -55,37 +62,45 @@ fun WorkshopScreen(viewModel: WorkshopViewModel = viewModel()) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditionStep(selected: ModEdition, onSelect: (ModEdition) -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("选择平台", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AppleNavBar(title = "选择平台")
         LazyColumn(
-            modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(ModEdition.entries) { edition ->
                 val isSelected = edition == selected
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelect(edition) }
-                ) {
+                AppleCard(modifier = Modifier.clickable { onSelect(edition) }) {
                     Row(
                         Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.Build,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 edition.label,
@@ -94,24 +109,16 @@ fun EditionStep(selected: ModEdition, onSelect: (ModEdition) -> Unit) {
                                 color = if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface
                             )
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(2.dp))
                             Text(
                                 edition.description,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 "默认版本: ${edition.defaultMcVersion}",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (isSelected) {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
                         }
                     }
@@ -121,7 +128,6 @@ fun EditionStep(selected: ModEdition, onSelect: (ModEdition) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DescribeStep(
     state: WorkshopUiState,
@@ -135,220 +141,131 @@ fun DescribeStep(
     onBack: () -> Unit
 ) {
     var showProviderPicker by remember { mutableStateOf(false) }
+    val canStart = state.name.isNotBlank() && state.selectedProvider != null
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("描述模组", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ChevronLeft, "返回", modifier = Modifier.size(28.dp))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AppleNavBar(title = "描述模组", onBack = onBack)
         LazyColumn(
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                AppleFormCard {
-                    AppleFormField(label = "模组名称 *") {
-                        OutlinedTextField(
-                            value = state.name,
-                            onValueChange = onNameChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("输入模组名称") },
-                            colors = appleTextFieldColors(),
-                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
-                        )
-                    }
+                AppleCard {
+                    AppleField(
+                        value = state.name,
+                        onValueChange = onNameChange,
+                        label = "模组名称 *",
+                        placeholder = "输入模组名称",
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
             item {
-                AppleFormCard {
-                    AppleFormField(label = "Mod ID（可选）") {
-                        OutlinedTextField(
-                            value = state.modId,
-                            onValueChange = onModIdChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("例如：mymod") },
-                            colors = appleTextFieldColors(),
-                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
-                        )
-                    }
+                AppleCard {
+                    AppleField(
+                        value = state.modId,
+                        onValueChange = onModIdChange,
+                        label = "Mod ID（可选）",
+                        placeholder = "例如：mymod",
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
             item {
-                AppleFormCard {
-                    AppleFormField(label = "MC 版本") {
-                        OutlinedTextField(
-                            value = state.mcVersion,
-                            onValueChange = onVersionChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("例如：1.20.1") },
-                            colors = appleTextFieldColors(),
-                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
-                        )
-                    }
+                AppleCard {
+                    AppleField(
+                        value = state.mcVersion,
+                        onValueChange = onVersionChange,
+                        label = "MC 版本",
+                        placeholder = "例如：1.20.1",
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
             item {
-                AppleFormCard {
-                    AppleFormField(label = "描述") {
-                        OutlinedTextField(
-                            value = state.description,
-                            onValueChange = onDescChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("描述你的模组") },
-                            minLines = 2,
-                            colors = appleTextFieldColors(),
-                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
-                        )
-                    }
+                AppleCard {
+                    AppleField(
+                        value = state.description,
+                        onValueChange = onDescChange,
+                        label = "描述",
+                        placeholder = "描述你的模组",
+                        minLines = 2,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
             item {
-                AppleFormCard {
-                    AppleFormField(label = "功能需求") {
-                        OutlinedTextField(
-                            value = state.features,
-                            onValueChange = onFeaturesChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("详细描述你想要的功能") },
-                            minLines = 3,
-                            colors = appleTextFieldColors(),
-                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
-                        )
-                    }
+                AppleCard {
+                    AppleField(
+                        value = state.features,
+                        onValueChange = onFeaturesChange,
+                        label = "功能需求",
+                        placeholder = "详细描述你想要的功能",
+                        minLines = 3,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
             item {
-                AppleFormCard {
-                    AppleFormField(label = "AI 模型") {
-                        val selectedProvider = state.selectedProvider
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showProviderPicker = true }
-                        ) {
-                            Row(
-                                Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Filled.SmartToy,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        selectedProvider?.name ?: "未选择",
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 16.sp
-                                    )
-                                    if (selectedProvider != null) {
-                                        Text(
-                                            selectedProvider.displayModel(),
-                                            fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    Icons.Filled.ChevronRight,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
+                AppleCard {
+                    AppleRow(
+                        title = state.selectedProvider?.name ?: "未选择",
+                        subtitle = state.selectedProvider?.displayModel(),
+                        icon = Icons.Filled.SmartToy,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        onClick = { showProviderPicker = true }
+                    )
                 }
             }
             item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (state.name.isNotBlank() && state.selectedProvider != null)
-                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = state.name.isNotBlank() && state.selectedProvider != null) { onStart() }
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.PlayArrow,
-                            null,
-                            tint = if (state.name.isNotBlank() && state.selectedProvider != null)
-                                Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "开始生成",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 17.sp,
-                            color = if (state.name.isNotBlank() && state.selectedProvider != null)
-                                Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                ApplePrimaryButton(
+                    text = "开始生成",
+                    icon = Icons.Filled.PlayArrow,
+                    enabled = canStart,
+                    onClick = onStart
+                )
             }
         }
     }
 
     if (showProviderPicker) {
-        ModalBottomSheet(onDismissRequest = { showProviderPicker = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    "选择模型",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+        AppleActionSheet(
+            title = "选择模型",
+            options = buildList {
                 state.providers.filter { it.enabled }.forEach { provider ->
                     provider.models.forEach { model ->
-                        ListItem(
-                            headlineContent = { Text(model, fontWeight = FontWeight.Medium) },
-                            supportingContent = { Text(provider.name, fontSize = 13.sp) },
-                            modifier = Modifier.clickable {
-                                onProviderChange(provider.copy(defaultModel = model))
-                                showProviderPicker = false
-                            }
+                        val isSelected =
+                            state.selectedProvider?.id == provider.id && state.selectedProvider?.defaultModel == model
+                        add(
+                            AppleSheetOption(
+                                label = "$model  ·  ${provider.name}",
+                                bold = isSelected,
+                                onClick = { onProviderChange(provider.copy(defaultModel = model)) }
+                            )
                         )
                     }
                 }
-                Spacer(Modifier.height(24.dp))
-            }
-        }
+            },
+            onDismiss = { showProviderPicker = false }
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneratingStep(state: WorkshopUiState, onCancel: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("生成中", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AppleNavBar(title = "生成中")
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val progress = state.progress
@@ -371,11 +288,7 @@ fun GeneratingStep(state: WorkshopUiState, onCancel: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(24.dp))
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth().weight(1f)
-            ) {
+            AppleCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 LazyColumn(Modifier.padding(12.dp)) {
                     items(state.log.takeLast(50)) { line ->
                         Text(
@@ -387,38 +300,21 @@ fun GeneratingStep(state: WorkshopUiState, onCancel: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
-                modifier = Modifier.fillMaxWidth().clickable { onCancel() }
-            ) {
-                Text(
-                    "取消",
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    modifier = Modifier.padding(16.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
+            AppleDestructiveRow("取消", onCancel)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResultStep(state: WorkshopUiState, onRetry: () -> Unit, onReset: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("结果", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AppleNavBar(title = "结果")
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(32.dp))
@@ -443,11 +339,7 @@ fun ResultStep(state: WorkshopUiState, onRetry: () -> Unit, onReset: () -> Unit)
             Text(state.resultMessage, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(20.dp))
             if (state.generatedFiles.isNotEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                AppleCard {
                     Column(Modifier.padding(16.dp)) {
                         Text("生成的文件", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Spacer(Modifier.height(8.dp))
@@ -458,68 +350,28 @@ fun ResultStep(state: WorkshopUiState, onRetry: () -> Unit, onReset: () -> Unit)
                 }
             }
             Spacer(Modifier.weight(1f))
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth().clickable { onRetry() }
-            ) {
-                Text(
-                    "重新生成",
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    modifier = Modifier.padding(16.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
+            ApplePrimaryButton(
+                text = "重新生成",
+                icon = if (state.success) null else Icons.Filled.Refresh,
+                onClick = onRetry
+            )
             Spacer(Modifier.height(12.dp))
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth().clickable { onReset() }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onReset),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     "返回开始",
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    modifier = Modifier.padding(16.dp),
-                    textAlign = TextAlign.Center
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.height(16.dp))
         }
     }
 }
-
-@Composable
-fun AppleFormCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(content = content)
-    }
-}
-
-@Composable
-fun AppleFormField(label: String, content: @Composable () -> Unit) {
-    Column(Modifier.padding(16.dp)) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        content()
-    }
-}
-
-@Composable
-fun appleTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = MaterialTheme.colorScheme.primary,
-    unfocusedBorderColor = Color.Transparent,
-    focusedContainerColor = Color.Transparent,
-    unfocusedContainerColor = Color.Transparent
-)

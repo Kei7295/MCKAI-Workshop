@@ -7,6 +7,7 @@ import com.mckai.app.MCKAIApp
 import com.mckai.app.data.llm.ProviderConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as MCKAIApp).appContainer
@@ -22,18 +23,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val memoryEnabled: StateFlow<Boolean> = settings.memoryEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val autoApproveSensitive: StateFlow<Boolean> = settings.autoApproveSensitive
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _testResult = MutableStateFlow<String?>(null)
     val testResult: StateFlow<String?> = _testResult.asStateFlow()
 
     fun setTheme(mode: String) { viewModelScope.launch { settings.setThemeMode(mode) } }
     fun setMemoryEnabled(enabled: Boolean) { viewModelScope.launch { settings.setMemoryEnabled(enabled) } }
+    fun setAutoApproveSensitive(enabled: Boolean) { viewModelScope.launch { settings.setAutoApproveSensitive(enabled) } }
 
     fun saveProvider(provider: ProviderConfig) {
-        viewModelScope.launch { settings.upsertProvider(provider) }
+        // NonCancellable：页面保存后立即 onBack 也不能中断写库
+        viewModelScope.launch {
+            withContext(kotlinx.coroutines.NonCancellable) { settings.upsertProvider(provider) }
+        }
     }
 
     fun deleteProvider(id: String) {
-        viewModelScope.launch { settings.deleteProvider(id) }
+        viewModelScope.launch {
+            withContext(kotlinx.coroutines.NonCancellable) { settings.deleteProvider(id) }
+        }
     }
 
     fun testConnection(provider: ProviderConfig) {

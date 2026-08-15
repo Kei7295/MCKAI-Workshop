@@ -1,5 +1,7 @@
 package com.mckai.app.data.llm
 
+import java.util.concurrent.atomic.AtomicLong
+
 class StreamAccumulator {
     class PendingTool {
         var id: String? = null
@@ -10,6 +12,7 @@ class StreamAccumulator {
     private val text = StringBuilder()
     private val reasoning = StringBuilder()
     private val pending = mutableMapOf<Int, PendingTool>()
+    private val fallbackIdSeq = AtomicLong(0)
 
     fun onEvent(event: LlmEvent) {
         when (event) {
@@ -27,10 +30,22 @@ class StreamAccumulator {
 
     fun textContent(): String = text.toString()
     fun reasoningContent(): String = reasoning.toString()
+
     fun pendingToolCalls(): List<ToolCallSpec> =
         pending.values.mapNotNull { p ->
             val name = p.name ?: return@mapNotNull null
-            ToolCallSpec(id = p.id ?: "call_${System.currentTimeMillis()}", name = name, args = LlmClient.fixJson(p.args.toString()))
+            ToolCallSpec(
+                id = p.id ?: "call_${fallbackIdSeq.incrementAndGet()}",
+                name = name,
+                args = LlmClient.fixJson(p.args.toString())
+            )
         }
+
     fun clearPending() { pending.clear() }
+
+    fun reset() {
+        pending.clear()
+        text.clear()
+        reasoning.clear()
+    }
 }

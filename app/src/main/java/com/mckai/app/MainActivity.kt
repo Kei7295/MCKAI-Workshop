@@ -5,8 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mckai.app.ui.components.AppleEasing
 import com.mckai.app.ui.navigation.AppNavGraph
 import com.mckai.app.ui.navigation.Screen
 import com.mckai.app.ui.navigation.bottomTabs
@@ -80,12 +82,12 @@ fun AppleBottomBar(
     isDark: Boolean
 ) {
     val bgColor = if (isDark) Color(0xFF1C1C1E) else Color(0xFFF9F9F9)
-    val separatorColor = if (isDark) Color(0xFF38383A) else Color(0xFFD1D1D6)
+    val separatorColor = if (isDark) Color(0xFF3A3A3C) else Color(0xFFE5E5EA)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(bgColor.copy(alpha = 0.95f))
+            .background(bgColor.copy(alpha = 0.92f))
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Top separator line
@@ -100,7 +102,8 @@ fun AppleBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 8.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -108,20 +111,17 @@ fun AppleBottomBar(
                 val selected = currentRoute == tab.route
                 val tintColor = animateColorAsState(
                     targetValue = if (selected) MaterialTheme.colorScheme.primary
-                    else if (isDark) Color(0xFF8E8E93) else Color(0xFF8E8E93),
-                    animationSpec = spring(),
+                    else Color(0xFF8E8E93),
+                    animationSpec = tween(250, easing = AppleEasing),
                     label = "tabTint"
                 )
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .then(
-                            Modifier.padding(0.dp)
-                        )
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onTabClick(tab) }
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
                 ) {
                     Icon(
                         imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
@@ -129,10 +129,10 @@ fun AppleBottomBar(
                         tint = tintColor.value,
                         modifier = Modifier.size(24.dp)
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.width(2.dp))
                     Text(
                         text = tab.label,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         color = tintColor.value
                     )

@@ -7,6 +7,14 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "favorites",
+    foreignKeys = [
+        ForeignKey(
+            entity = MessageEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["messageId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [Index("messageId", unique = true)]
 )
 data class FavoriteEntity(

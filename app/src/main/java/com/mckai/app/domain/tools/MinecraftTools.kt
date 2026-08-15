@@ -84,6 +84,22 @@ fun registerMinecraftTools(r: ToolRegistry) {
     })
 
     r.register(ToolMetadata(
+        name = "mc_item_lookup",
+        description = "查询内置 Minecraft 物品数据：ID、中文名、堆叠、分类、用途",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("name", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("物品 ID 或中文名，如 diamond / 钻石")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("name")) })
+        },
+        category = "minecraft"
+    ), handler = { args ->
+        val name = args["name"]?.jsonPrimitive?.content ?: return@register "请提供 name 参数"
+        McItemData.lookup(name)
+    })
+
+    r.register(ToolMetadata(
         name = "mc_mod_template",
         description = "获取 Minecraft 模组模板代码",
         parameters = buildJsonObject {
@@ -107,65 +123,327 @@ fun registerMinecraftTools(r: ToolRegistry) {
             "food" -> generateFoodTemplate(platform, name)
             "tool" -> generateToolTemplate(platform, name)
             "armor" -> generateArmorTemplate(platform, name)
-            "recipe" -> "配方模板需要与具体物品配合使用"
+            "recipe" -> generateRecipeTemplate(name)
             else -> "未知模板类型 '$type'。支持：block, item, entity, food, tool, armor, recipe"
+        }
+    })
+r.register(ToolMetadata(
+        name = "ask_clarification",
+        description = "当用户需求不明确时调用此工具请求澄清。参数 question 是要问的问题，options 是候选选项。调用后会暂停生成并向用户展示问题。",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("question", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("需要澄清的问题，必须具体")) })
+                put("options", buildJsonObject { put("type", JsonPrimitive("array")); put("description", JsonPrimitive("候选选项（2-4个）")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("question")) })
+        },
+        category = "minecraft"
+    ), handler = { args ->
+        val question = args["question"]?.jsonPrimitive?.content ?: "需要澄清"
+        val options = args["options"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+        // 从历史 tool 消息回传给模型；此处返回原始参数（模型会继续对话）
+        buildString {
+            appendLine("【需要澄清】$question")
+            options.forEachIndexed { i, opt -> appendLine("${i + 1}. $opt") }
         }
     })
 }
 
-private fun generateBlockTemplate(platform: String, name: String): String = when (platform) {
-    "fabric" -> """
+/** 澄清机制（ModCrafting ask_clarification）：生成结构化澄清请求 JSON */
+private const val CLARIFY_TEMPLATE = """
+{
+  "clarification": {
+    "question": "这里写需要澄清的问题",
+    "options": ["选项A", "选项B", "选项C"],
+    "reason": "为什么需要澄清（可选）"
+  }
+}
+"""
+
+private fun generateRecipeTemplate(itemName: String): String = """
+    |// 合成配方 JSON（Fabric 路径：src/main/resources/data/<modid>/recipe/<name>.json）
+    |{
+    |  "type": "minecraft:crafting_shaped",
+    |  "pattern": [
+    |    "AAA",
+    |    "ABA",
+    |    "AAA"
+    |  ],
+    |  "key": {
+    |    "A": { "item": "minecraft:iron_ingot" },
+    |    "B": { "item": "minecraft:${itemName.lowercase()}" }
+    |  },
+    |  "result": {
+    |    "item": "<modid>:${itemName.lowercase()}",
+    |    "count": 1
+    |  }
+    |}
+    |
+    |// 熔炼配方（smelting）
+    |{
+    |  "type": "minecraft:smelting",
+    |  "ingredient": { "item": "minecraft:raw_iron" },
+    |  "result": { "id": "minecraft:iron_ingot" },
+    |  "experience": 0.7,
+    |  "cookingtime": 200
+    |}
+""".trimMargin()
+
+private fun generateBlockTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== Java 主类（src/main/java/com/example/mod/${name}Block.java）===
         |package com.example.mod;
         |
+        |import net.minecraft.block.AbstractBlock;
         |import net.minecraft.block.Block;
         |import net.minecraft.block.MapColor;
         |import net.minecraft.item.BlockItem;
         |import net.minecraft.item.Item;
-        |import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
-        |import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
+        |import net.minecraft.registry.Registries;
+        |import net.minecraft.registry.Registry;
+        |import net.minecraft.util.Identifier;
         |
-        |public class ${name}Block {
-        |    public static final Block INSTANCE = new Block(FabricBlockSettings.create()
-        |        .mapColor(MapColor.STONE_GRAY)
-        |        .strength(3.0f, 3.0f)
-        |        .requiresTool());
+        |public class ${name}Block extends Block {
+        |    public ${name}Block() {
+        |        super(AbstractBlock.Settings.create()
+        |            .mapColor(MapColor.STONE_GRAY)
+        |            .strength(3.0f, 6.0f)
+        |            .requiresTool());
+        |    }
         |
-        |    public static final BlockItem ITEM = new BlockItem(INSTANCE, new FabricItemSettings());
+        |    public static final Block INSTANCE = new ${name}Block();
+        |    public static final Item ITEM = new BlockItem(INSTANCE, new Item.Settings());
         |
         |    public static void register() {
-        |        // Register block and item in your mod initializer
+        |        Registry.register(Registries.BLOCK, Identifier.of("<modid>", "$lower"), INSTANCE);
+        |        Registry.register(Registries.ITEM, Identifier.of("<modid>", "$lower"), ITEM);
         |    }
         |}
+        |
+        |=== 配方（src/main/resources/data/<modid>/recipe/${lower}.json）===
+        |{
+        |  "type": "minecraft:crafting_shaped",
+        |  "pattern": ["AAA", "ABA", "AAA"],
+        |  "key": {
+        |    "A": { "item": "minecraft:stone" },
+        |    "B": { "item": "minecraft:iron_ingot" }
+        |  },
+        |  "result": { "item": "<modid>:$lower" }
+        |}
+        |
+        |=== 模型（src/main/resources/assets/<modid>/models/block/${lower}.json）===
+        |{ "parent": "minecraft:block/cube_all", "textures": { "all": "<modid>:block/$lower" } }
+        |
+        |=== 物品模型（assets/<modid>/models/item/${lower}.json）===
+        |{ "parent": "<modid>:block/$lower" }
+        |
+        |=== Blockstate（assets/<modid>/blockstates/${lower}.json）===
+        |{
+        |  "variants": {
+        |    "": { "model": "<modid>:block/$lower" }
+        |  }
+        |}
     """.trimMargin()
-    else -> "// $platform block template for $name"
 }
 
-private fun generateItemTemplate(platform: String, name: String): String = """
-    |// ${platform.uppercase()} Item Template: $name
-    |// Create an Item class extending net.minecraft.world.item.Item
-    |// Register in your mod initializer with appropriate settings
-""".trimMargin()
+private fun generateItemTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== Java 类（src/main/java/com/example/mod/${name}Item.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.item.Item;
+        |import net.minecraft.registry.Registries;
+        |import net.minecraft.registry.Registry;
+        |import net.minecraft.util.Identifier;
+        |
+        |public class ${name}Item extends Item {
+        |    public ${name}Item() {
+        |        super(new Item.Settings().maxCount(64));
+        |    }
+        |
+        |    public static final Item INSTANCE = new ${name}Item();
+        |
+        |    public static void register() {
+        |        Registry.register(Registries.ITEM, Identifier.of("<modid>", "$lower"), INSTANCE);
+        |    }
+        |}
+        |
+        |=== 物品模型（assets/<modid>/models/item/${lower}.json）===
+        |{
+        |  "parent": "minecraft:item/generated",
+        |  "textures": { "layer0": "<modid>:item/$lower" }
+        |}
+        |
+        |=== 语言文件（assets/<modid>/lang/zh_cn.json 追加）===
+        |{ "item.<modid>.$lower": "${name}物品名" }
+    """.trimMargin()
+}
 
-private fun generateEntityTemplate(platform: String, name: String): String = """
-    |// ${platform.uppercase()} Entity Template: $name
-    |// Create an Entity class extending LivingEntity or AnimalEntity
-    |// Register entity type, renderer, and AI goals
-""".trimMargin()
+private fun generateEntityTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== 实体类（src/main/java/com/example/mod/${name}Entity.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.entity.EntityType;
+        |import net.minecraft.entity.mob.PathAwareEntity;
+        |import net.minecraft.world.World;
+        |
+        |public class ${name}Entity extends PathAwareEntity {
+        |    public ${name}Entity(EntityType<? extends PathAwareEntity> type, World world) {
+        |        super(type, world);
+        |    }
+        |
+        |    public static final EntityType<${name}Entity> TYPE = EntityType.Builder
+        |        .create(${name}Entity::new, SpawnGroup.CREATURE)
+        |        .dimensions(0.6f, 1.8f)
+        |        .build();
+        |
+        |    public static void register() {
+        |        Registry.register(Registries.ENTITY_TYPE,
+        |            Identifier.of("<modid>", "$lower"), TYPE);
+        |        // 还需 FabricDefaultBiomeModifications.addSpawn 控制生成
+        |    }
+        |}
+        |
+        |=== 实体模型/贴图（assets/<modid>/models/entity/${lower}.json）===
+        |{ "texture_size": [64, 32], "textures": { "main": "<modid>:textures/entity/$lower.png" }, "elements": [] }
+        |
+        |=== 生成配置（Fabric 主类中调用）===
+        |FabricDefaultBiomeModifications.addSpawn(
+        |    SpawnContext.of(SpawnGroup.CREATURE),
+        |    SpawnRestriction.Location.ON_GROUND,
+        |    TrackedEntity.create(0.5, 2, 16),
+        |    (biome, context) -> true
+        |);
+    """.trimMargin()
+}
 
-private fun generateFoodTemplate(platform: String, name: String): String = """
-    |// ${platform.uppercase()} Food Template: $name
-    |// Create an Item with FoodComponent/Properties
-    |// Set nutrition, saturation, and effects
-""".trimMargin()
+private fun generateFoodTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== Java 类（src/main/java/com/example/mod/${name}Item.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.component.type.FoodComponent;
+        |import net.minecraft.item.Item;
+        |import net.minecraft.registry.Registries;
+        |import net.minecraft.registry.Registry;
+        |import net.minecraft.util.Identifier;
+        |
+        |public class ${name}Item extends Item {
+        |    public ${name}Item() {
+        |        super(new Item.Settings()
+        |            .food(new FoodComponent.Builder()
+        |                .nutrition(4)          // 恢复 4 格饥饿
+        |                .saturationModifier(0.3f)  // 饱和度系数
+        |                .snack()               // 小吃：可快速食用
+        |                .build()));
+        |    }
+        |
+        |    public static final Item INSTANCE = new ${name}Item();
+        |
+        |    public static void register() {
+        |        Registry.register(Registries.ITEM, Identifier.of("<modid>", "$lower"), INSTANCE);
+        |    }
+        |}
+        |
+        |=== 物品模型（assets/<modid>/models/item/${lower}.json）===
+        |{
+        |  "parent": "minecraft:item/generated",
+        |  "textures": { "layer0": "<modid>:item/$lower" }
+        |}
+    """.trimMargin()
+}
 
-private fun generateToolTemplate(platform: String, name: String): String = """
-    |// ${platform.uppercase()} Tool Template: $name
-    |// Create a ToolItem with ToolMaterial
-    |// Define attack damage, mining speed, durability
-""".trimMargin()
+private fun generateToolTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== 工具材料（src/main/java/com/example/mod/${name}Material.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.item.ToolMaterial;
+        |import net.minecraft.registry.tag.BlockTags;
+        |import net.minecraft.registry.tag.ItemTags;
+        |
+        |public class ${name}Material implements ToolMaterial {
+        |    public static final ${name}Material INSTANCE = new ${name}Material();
+        |
+        |    @Override public int getDurability() { return 512; }
+        |    @Override public float getMiningSpeed() { return 6.0f; }
+        |    @Override public float getAttackDamage() { return 3.0f; }
+        |    @Override public int getMiningLevel() { return 3; }
+        |    @Override public int getEnchantability() { return 14; }
+        |    @Override public Ingredient getRepairIngredient() {
+        |        return Ingredient.ofItems(/* 修复物品，如 Items.DIAMOND */);
+        |    }
+        |}
+        |
+        |=== 工具类（${name}Tool.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.item.PickaxeItem;
+        |import net.minecraft.item.ToolMaterial;
+        |
+        |public class ${name}Tool extends PickaxeItem {
+        |    public ${name}Tool(ToolMaterial material, float attackDamage,
+        |                      float attackSpeed, Settings settings) {
+        |        super(material, attackDamage, attackSpeed, settings);
+        |    }
+        |}
+        |// 注册：
+        |// Registry.register(Registries.ITEM, Identifier.of("<modid>", "$lower"),
+        |//     new ${name}Tool(${name}Material.INSTANCE, 1.0f, -2.8f,
+        |//         new Item.Settings().maxDamage(512)));
+    """.trimMargin()
+}
 
-private fun generateArmorTemplate(platform: String, name: String): String = """
-    |// ${platform.uppercase()} Armor Template: $name
-    |// Create ArmorItem with ArmorMaterial
-    |// Define protection values and durability for each slot
-""".trimMargin()
+private fun generateArmorTemplate(platform: String, name: String): String {
+    if (platform != "fabric") return "// $platform 暂只支持 Fabric 完整模板"
+    val lower = name.lowercase()
+    return """
+        |=== 护甲材料（src/main/java/com/example/mod/${name}ArmorMaterial.java）===
+        |package com.example.mod;
+        |
+        |import net.minecraft.item.ArmorItem;
+        |import net.minecraft.item.ArmorMaterial;
+        |import net.minecraft.recipe.Ingredient;
+        |import net.minecraft.registry.Registries;
+        |import net.minecraft.registry.Registry;
+        |import net.minecraft.registry.entry.RegistryEntry;
+        |import net.minecraft.sound.SoundEvents;
+        |import net.minecraft.util.Identifier;
+        |
+        |public class ${name}ArmorMaterial {
+        |    public static final RegistryEntry<ArmorMaterial> INSTANCE =
+        |        Registry.registerReference(Registries.ARMOR_MATERIAL,
+        |            Identifier.of("<modid>", "$lower"),
+        |            new ArmorMaterial(
+        |                // 各部位护甲值: 头盔/胸甲/护腿/靴子
+        |                new int[]{3, 6, 5, 3},
+        |                // 附魔能力
+        |                15,
+        |                SoundEvents.ITEM_ARMOR_EQUIP_DIAMOND,
+        |                () -> Ingredient.ofItems(/* 修复物品 */),
+        |                List.of(new ArmorMaterial.Layer(Identifier.of("<modid>", "$lower"))),
+        |                0f, 0f));
+        |}
+        |
+        |=== 注册示例（胸甲）===
+        |// Registry.register(Registries.ITEM, Identifier.of("<modid>", "${lower}_chestplate"),
+        |//     new ArmorItem(${name}ArmorMaterial.INSTANCE, ArmorItem.Type.CHESTPLATE,
+        |//         new Item.Settings().maxDamage(ArmorItem.Type.CHESTPLATE.getMaxDamage(15))));
+        |
+        |=== 护甲贴图层目录 ===
+        |assets/<modid>/textures/models/armor/${lower}_layer_1.png
+        |assets/<modid>/textures/models/armor/${lower}_layer_2.png
+    """.trimMargin()
+}

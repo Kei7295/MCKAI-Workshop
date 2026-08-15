@@ -36,17 +36,21 @@ class WorkshopAgent(
         while (round < maxRounds && !isCancelled()) {
             round++
             val acc = StreamAccumulator()
-            var hasToolCall = false
             var complete = false
+            var errored = false
 
             llmClient.stream(provider, systemPrompt, messages, tools).collect { event ->
                 acc.onEvent(event)
                 when (event) {
                     is LlmEvent.TextDelta -> emit(AgentEvent.TextDelta(event.text))
-                    is LlmEvent.Error -> emit(AgentEvent.Error(event.message))
+                    is LlmEvent.Error -> {
+                        errored = true
+                        emit(AgentEvent.Error(event.message))
+                    }
                     else -> Unit
                 }
             }
+            if (errored) break
 
             val toolCalls = acc.pendingToolCalls()
             if (toolCalls.isEmpty()) {
@@ -98,6 +102,8 @@ class WorkshopAgent(
         } else if (generatedFiles.isEmpty()) {
             emit(AgentEvent.Error("未生成任何文件"))
         } else {
+            // 完整产物随事件透出，避免调用方从被截断的日志反推
+            emit(AgentEvent.Files(generatedFiles))
             val summary = "成功生成 ${generatedFiles.size} 个文件：\n${generatedFiles.keys.joinToString("\n")}"
             emit(AgentEvent.TextDelta("\n\n--- 生成完成 ---\n$summary"))
             emit(AgentEvent.Done)

@@ -29,48 +29,99 @@ class AgentEngine(
         val mode = classifyMode(userMessage, config)
         onProgress("模式：$mode")
 
+        // 记忆统一并入 systemPrompt（OpenAI 兼容 API 要求 system 在首位）
+        val effectiveConfig = config.copy(
+            systemPrompt = config.systemPrompt +
+                (config.memoryContext?.let { "\n\n相关记忆：\n$it" } ?: "")
+        )
+
         when (mode) {
-            AgentMode.CHAT -> chatMode(config, userMessage, history).collect { emit(it) }
-            AgentMode.PLAN -> planMode(config, userMessage, history, onProgress).collect { emit(it) }
-            AgentMode.EXECUTE -> executeMode(config, userMessage, history, onProgress).collect { emit(it) }
+            AgentMode.CHAT, AgentMode.EXECUTE ->
+                runToolLoop(effectiveConfig, userMessage, history, onProgress).collect { emit(it) }
+            AgentMode.PLAN ->
+                planMode(effectiveConfig, userMessage, history, onProgress).collect { emit(it) }
         }
     }
 
     private suspend fun classifyMode(input: String, config: AgentConfig): AgentMode {
-        val lower = input.lowercase()
+        val lower = input.lowercase().trim()
         if (lower.startsWith("/chat")) return AgentMode.CHAT
         if (lower.startsWith("/plan")) return AgentMode.PLAN
         if (lower.startsWith("/exec")) return AgentMode.EXECUTE
 
-        val keywords = listOf("生成", "写", "创建", "实现", "开发", "编码", "build", "create", "generate", "implement", "code", "fix", "bug", "错误", "崩溃", "crash")
-        if (keywords.any { lower.contains(it) }) return AgentMode.EXECUTE
+        // 纯闲聊/短消息不进工具模式，避免误判（整词匹配，避免 "decode" 命中 "code"）
+        if (lower.length <= 12) return AgentMode.CHAT
 
-        val planKeywords = listOf("分析", "规划", "计划", "设计", "架构", "分析一下", "怎么做", "方案")
-        if (planKeywords.any { lower.contains(it) }) return AgentMode.PLAN
+        val execKeywords = listOf("生成", "写代码", "创建", "实现", "开发", "编码", "修复", "调bug", "build", "create", "generate", "implement", "fix bug", "crash", "报错", "错误处理")
+        val planKeywords = listOf("分析", "规划", "计划", "设计", "架构", "怎么做", "方案", "路线图")
 
+        val words = lower.split(Regex("[^a-z0-9\u4e00-\u9fff]+")).filter { it.isNotBlank() }
+        if (execKeywords.any { k -> lower.contains(k) }) return AgentMode.EXECUTE
+        if (planKeywords.any { k -> lower.contains(k) }) return AgentMode.PLAN
+        if (words.any { it == "code" || it == "bug" || it == "fix" }) return AgentMode.EXECUTE
         return AgentMode.CHAT
     }
 
-    private suspend fun chatMode(config: AgentConfig, userMessage: String, history: List<ChatMessage>): Flow<AgentEvent> = flow {
-        val messages = buildMessages(config, userMessage, history)
-        val tools: List<com.mckai.app.data.llm.ToolDef> = if (config.toolsEnabled) toolRegistry.getToolsForLlm() else emptyList()
-        val acc = StreamAccumulator()
+    /**
+     * 真正的工具循环：每轮 = 一次流式生成 + （如有工具调用）执行并回喂结果，
+     * 直到模型不再请求工具或达到 maxRounds。
+     * 每轮结束时必然 emit 一次 Done（无工具 / 错误 / 达到上限）。
+     */
+    private suspend fun runToolLoop(
+        config: AgentConfig,
+        userMessage: String,
+        history: List<ChatMessage>,
+        onProgress: (String) -> Unit
+    ): Flow<AgentEvent> = flow {
+        val messages = buildMessages(config, userMessage, history).toMutableList()
+        val tools: List<ToolDef> = if (config.toolsEnabled) toolRegistry.getToolsForLlm() else emptyList()
+        var round = 0
 
-        llmClient.stream(config.provider, config.systemPrompt, messages, tools).collect { event ->
-            acc.onEvent(event)
-            when (event) {
-                is LlmEvent.TextDelta -> emit(AgentEvent.TextDelta(event.text))
-                is LlmEvent.ReasoningDelta -> emit(AgentEvent.ReasoningDelta(event.text))
-                is LlmEvent.Error -> emit(AgentEvent.Error(event.message))
-                is LlmEvent.Done -> {
-                    if (acc.pendingToolCalls().isNotEmpty()) {
-                        executeToolCalls(config, acc, messages, userMessage).collect { emit(it) }
+        while (round < config.maxRounds) {
+            val acc = StreamAccumulator()
+            var errored = false
+            var doneReceived = false
+
+            llmClient.stream(config.provider, config.systemPrompt, messages, tools).collect { event ->
+                acc.onEvent(event)
+                when (event) {
+                    is LlmEvent.TextDelta -> emit(AgentEvent.TextDelta(event.text))
+                    is LlmEvent.ReasoningDelta -> emit(AgentEvent.ReasoningDelta(event.text))
+                    is LlmEvent.Error -> {
+                        errored = true
+                        emit(AgentEvent.Error(event.message))
                     }
-                    emit(AgentEvent.Done)
+                    is LlmEvent.Done -> doneReceived = true
+                    else -> Unit
                 }
-                else -> Unit
             }
+            if (errored) {
+                emit(AgentEvent.Done)
+                break
+            }
+
+            val pending = acc.pendingToolCalls()
+            if (pending.isEmpty() || tools.isEmpty() || !doneReceived) {
+                emit(AgentEvent.Done)
+                break
+            }
+
+            round++
+            onProgress("执行工具调用（第 $round 轮）...")
+            emit(AgentEvent.ToolExecutionStart(pending.map { it.name }))
+            val results = executeToolCallsSync(pending)
+            results.forEach { (name, result) ->
+                emit(AgentEvent.ToolResult(name, result))
+            }
+            // 回喂：assistant 工具调用声明 + 各工具结果
+            messages.add(ChatMessage(role = "assistant", content = acc.textContent(), toolCalls = pending))
+            results.forEachIndexed { i, (_, result) ->
+                messages.add(ChatMessage(role = "tool", content = result, toolCallId = pending[i].id))
+            }
+            acc.clearPending()
         }
+
+        if (round >= config.maxRounds) emit(AgentEvent.Done)
     }
 
     private suspend fun planMode(config: AgentConfig, userMessage: String, history: List<ChatMessage>, onProgress: (String) -> Unit): Flow<AgentEvent> = flow {
@@ -92,8 +143,7 @@ class AgentEngine(
             |潜在问题和解决方案
         """.trimMargin()
 
-        val fullSystem = config.systemPrompt + "\n\n$planPrompt" +
-            (config.memoryContext?.let { "\n\n相关记忆：\n$it" } ?: "")
+        val fullSystem = config.systemPrompt + "\n\n$planPrompt"
         val messages = buildMessages(config, userMessage, history)
 
         llmClient.stream(config.provider, fullSystem, messages).collect { event ->
@@ -103,50 +153,6 @@ class AgentEngine(
                 is LlmEvent.Done -> emit(AgentEvent.Done)
                 else -> Unit
             }
-        }
-    }
-
-    private suspend fun executeMode(config: AgentConfig, userMessage: String, history: List<ChatMessage>, onProgress: (String) -> Unit): Flow<AgentEvent> = flow {
-        val messages = buildMessages(config, userMessage, history)
-        val tools: List<com.mckai.app.data.llm.ToolDef> = if (config.toolsEnabled) toolRegistry.getToolsForLlm() else emptyList()
-        val acc = StreamAccumulator()
-        var round = 0
-
-        llmClient.stream(config.provider, config.systemPrompt, messages, tools).collect { event ->
-            acc.onEvent(event)
-            when (event) {
-                is LlmEvent.TextDelta -> emit(AgentEvent.TextDelta(event.text))
-                is LlmEvent.ReasoningDelta -> emit(AgentEvent.ReasoningDelta(event.text))
-                is LlmEvent.Error -> emit(AgentEvent.Error(event.message))
-                is LlmEvent.Done -> {
-                    val pendingTools = acc.pendingToolCalls()
-                    if (pendingTools.isNotEmpty() && round < config.maxRounds) {
-                        round++
-                        onProgress("执行工具调用（第 $round 轮）...")
-                        emit(AgentEvent.ToolExecutionStart(pendingTools.map { it.name }))
-                        val results = executeToolCallsSync(pendingTools)
-                        results.forEach { (name, result) ->
-                            emit(AgentEvent.ToolResult(name, result))
-                        }
-                        acc.clearPending()
-                        // Continue the loop with tool results
-                    } else {
-                        emit(AgentEvent.Done)
-                    }
-                }
-                else -> Unit
-            }
-        }
-    }
-
-    private suspend fun executeToolCalls(config: AgentConfig, acc: StreamAccumulator, messages: List<ChatMessage>, originalInput: String): Flow<AgentEvent> = flow {
-        val pendingTools = acc.pendingToolCalls()
-        if (pendingTools.isEmpty()) return@flow
-
-        emit(AgentEvent.ToolExecutionStart(pendingTools.map { it.name }))
-        val toolResults = executeToolCallsSync(pendingTools)
-        toolResults.forEach { (name, result) ->
-            emit(AgentEvent.ToolResult(name, result))
         }
     }
 
@@ -162,9 +168,7 @@ class AgentEngine(
 
     private fun buildMessages(config: AgentConfig, userMessage: String, history: List<ChatMessage>): List<ChatMessage> {
         val msgs = history.toMutableList()
-        config.memoryContext?.let {
-            msgs.add(ChatMessage(role = "system", content = "相关记忆：\n$it"))
-        }
+        // 记忆并入 systemPrompt（上游）而不是作为中间的 system 消息
         msgs.add(ChatMessage(role = "user", content = userMessage))
         return msgs
     }
@@ -175,6 +179,8 @@ sealed interface AgentEvent {
     data class ReasoningDelta(val text: String) : AgentEvent
     data class ToolExecutionStart(val names: List<String>) : AgentEvent
     data class ToolResult(val name: String, val result: String) : AgentEvent
+    /** 工作台产物：完整文件清单（内容随事件携带） */
+    data class Files(val files: Map<String, String>) : AgentEvent
     data class Error(val message: String) : AgentEvent
     object Done : AgentEvent
 }

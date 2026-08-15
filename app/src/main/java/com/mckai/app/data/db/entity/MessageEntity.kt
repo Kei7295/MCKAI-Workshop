@@ -13,6 +13,12 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["conversationId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = MessageEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["parentId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [Index("conversationId"), Index("parentId")]
@@ -28,5 +34,11 @@ data class MessageEntity(
     val toolCallsJson: String? = null,
     val isFavorite: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
-    val metadata: String? = null
+    val metadata: String? = null,
+    // -- 分支支持 (RikkaHub MessageNode 移植) --
+    val branchGroupId: String? = null,
+    val isHidden: Boolean = false,
+    // -- token 统计 (使用量账本) --
+    val promptTokens: Int? = null,
+    val completionTokens: Int? = null
 )

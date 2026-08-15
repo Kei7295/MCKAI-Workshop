@@ -15,7 +15,11 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("projectId"), Index("filePath")]
+    indices = [
+        Index("projectId"),
+        Index("filePath"),
+        Index("projectId", "filePath", unique = true)
+    ]
 )
 data class ProjectFileEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

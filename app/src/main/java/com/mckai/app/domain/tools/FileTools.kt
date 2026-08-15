@@ -111,21 +111,27 @@ fun registerFileTools(r: ToolRegistry) {
         try {
             val dir = File(path)
             if (!dir.exists()) return@register "目录不存在：$path"
+            if (!dir.isDirectory) return@register "不是目录：$path"
             val results = mutableListOf<String>()
-            dir.walkTopDown()
-                .filter { it.isFile && (ext == null || it.extension == ext.removePrefix(".")) }
-                .forEach { file ->
-                    if (results.size >= 50) return@forEach
-                    try {
-                        val content = file.readText()
-                        if (content.contains(query, ignoreCase = true)) {
-                            val line = content.lines().indexOfFirst { it.contains(query, ignoreCase = true) } + 1
-                            results.add("${file.relativeTo(dir).path}:L$line")
-                        }
-                    } catch (_: Exception) { }
-                }
+            var scanned = 0
+            val iterator = dir.walkTopDown().iterator()
+            while (iterator.hasNext() && results.size < 50 && scanned < 5000) {
+                val file = iterator.next()
+                if (!file.isFile) continue
+                scanned++
+                if (ext != null && file.extension != ext.removePrefix(".")) continue
+                // 跳过超大/二进制文件，防止 OOM
+                if (file.length() > 5 * 1024 * 1024) continue
+                try {
+                    val content = file.readText()
+                    if (content.contains(query, ignoreCase = true)) {
+                        val line = content.lines().indexOfFirst { it.contains(query, ignoreCase = true) } + 1
+                        results.add("${file.relativeTo(dir).path}:L$line")
+                    }
+                } catch (_: Exception) { }
+            }
             if (results.isEmpty()) "未找到包含 '$query' 的文件"
-            else "找到 ${results.size} 个文件：\n${results.joinToString("\n")}"
+            else "找到 ${results.size} 个文件（扫描 ${scanned} 个）:\n${results.joinToString("\n")}"
         } catch (e: Exception) {
             "搜索失败：${e.message}"
         }

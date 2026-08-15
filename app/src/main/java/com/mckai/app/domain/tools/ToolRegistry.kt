@@ -1,5 +1,6 @@
 package com.mckai.app.domain.tools
 
+import android.content.Context
 import android.util.Log
 import com.mckai.app.data.llm.ToolDef
 import kotlinx.serialization.json.*
@@ -35,8 +36,19 @@ class ToolRegistry {
 
     fun getCategories(): Map<String, List<ToolMetadata>> = tools.values.map { it.first }.groupBy { it.category }
 
-    suspend fun execute(name: String, args: JsonObject): String {
+    /**
+     * 统一执行入口。
+     * @param allowSensitive 是否放行 ADMIN 权限工具（由调用方自行完成确认门禁）。
+     * ROOT 工具永远拒绝。
+     */
+    suspend fun execute(name: String, args: JsonObject, allowSensitive: Boolean = false): String {
         val (meta, handler) = tools[name] ?: return "错误：未知工具 '$name'"
+        if (meta.permission == ToolPermission.ROOT) {
+            return "工具 $name 需要 ROOT 权限，已跳过。"
+        }
+        if (meta.permission == ToolPermission.ADMIN && !allowSensitive) {
+            return "工具 $name 需要确认权限，已跳过。"
+        }
         return try {
             handler(args)
         } catch (e: Exception) {
@@ -46,13 +58,14 @@ class ToolRegistry {
     }
 
     companion object {
-        fun buildDefault(): ToolRegistry {
+        fun buildDefault(context: Context, db: com.mckai.app.data.db.AppDatabase): ToolRegistry {
             val registry = ToolRegistry()
             registerCoreTools(registry)
             registerFileTools(registry)
             registerNetworkTools(registry)
             registerMinecraftTools(registry)
-            registerMemoryTools(registry)
+            registerMemoryTools(registry, db.memoryDao())
+            registerSystemTools(registry, context)
             return registry
         }
     }

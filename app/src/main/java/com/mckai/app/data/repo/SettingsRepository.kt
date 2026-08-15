@@ -24,6 +24,7 @@ class SettingsRepository(private val context: Context) {
     private val activeAssistantIdKey = longPreferencesKey("active_assistant_id")
     private val memoryEnabledKey = booleanPreferencesKey("memory_enabled")
     private val toolsEnabledKey = booleanPreferencesKey("tools_enabled")
+    private val autoApproveSensitiveKey = booleanPreferencesKey("auto_approve_sensitive_tools")
 
     val providers: Flow<List<ProviderConfig>> = context.dataStore.data.map { prefs ->
         prefs[providersKey]?.let { raw ->
@@ -38,21 +39,32 @@ class SettingsRepository(private val context: Context) {
     val activeAssistantId: Flow<Long> = context.dataStore.data.map { it[activeAssistantIdKey] ?: 0L }
     val memoryEnabled: Flow<Boolean> = context.dataStore.data.map { it[memoryEnabledKey] ?: false }
     val toolsEnabled: Flow<Boolean> = context.dataStore.data.map { it[toolsEnabledKey] ?: true }
+    val autoApproveSensitive: Flow<Boolean> = context.dataStore.data.map { it[autoApproveSensitiveKey] ?: false }
 
     suspend fun saveProviders(list: List<ProviderConfig>) {
         context.dataStore.edit { it[providersKey] = json.encodeToString(list) }
     }
 
+    /** 原子 read-modify-write：杜绝并发更新互相覆盖（rotateKey 与页面保存并发时的丢更新）。 */
     suspend fun upsertProvider(provider: ProviderConfig) {
-        val current = providers.firstOrNull() ?: ProviderPresets.builtIn()
-        val idx = current.indexOfFirst { it.id == provider.id }
-        val updated = if (idx >= 0) current.toMutableList().apply { set(idx, provider) } else current + provider
-        saveProviders(updated)
+        context.dataStore.edit { prefs ->
+            val current = decodeProviders(prefs[providersKey])
+            val idx = current.indexOfFirst { it.id == provider.id }
+            val updated = if (idx >= 0) current.toMutableList().apply { set(idx, provider) } else current + provider
+            prefs[providersKey] = json.encodeToString(updated)
+        }
     }
 
     suspend fun deleteProvider(id: String) {
-        val current = providers.firstOrNull() ?: return
-        saveProviders(current.filter { it.id != id })
+        context.dataStore.edit { prefs ->
+            val current = decodeProviders(prefs[providersKey])
+            prefs[providersKey] = json.encodeToString(current.filter { it.id != id })
+        }
+    }
+
+    private fun decodeProviders(raw: String?): List<ProviderConfig> {
+        if (raw == null) return ProviderPresets.builtIn()
+        return try { json.decodeFromString<List<ProviderConfig>>(raw) } catch (_: Exception) { ProviderPresets.builtIn() }
     }
 
     suspend fun firstEnabledProvider(): ProviderConfig? =
@@ -83,5 +95,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[toolsEnabledKey] = enabled }
+    }
+
+    suspend fun setAutoApproveSensitive(enabled: Boolean) {
+        context.dataStore.edit { it[autoApproveSensitiveKey] = enabled }
     }
 }

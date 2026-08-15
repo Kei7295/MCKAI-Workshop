@@ -35,6 +35,7 @@ data class ChatMessage(
     val toolCalls: List<ToolCallSpec>? = null
 )
 
+@Serializable
 data class ToolCallSpec(
     val id: String,
     val name: String,

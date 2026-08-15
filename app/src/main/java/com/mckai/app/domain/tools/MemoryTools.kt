@@ -1,8 +1,12 @@
 package com.mckai.app.domain.tools
 
+import com.mckai.app.data.db.dao.MemoryDao
+import com.mckai.app.data.db.entity.MemoryEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 
-fun registerMemoryTools(r: ToolRegistry) {
+fun registerMemoryTools(r: ToolRegistry, dao: MemoryDao) {
     r.register(ToolMetadata(
         name = "save_memory",
         description = "保存一条记忆到长期记忆库",
@@ -19,8 +23,17 @@ fun registerMemoryTools(r: ToolRegistry) {
     ), handler = { args ->
         val content = args["content"]?.jsonPrimitive?.content ?: return@register "请提供 content 参数"
         val category = args["category"]?.jsonPrimitive?.content ?: "general"
-        // Memory will be saved by the MemoryManager through the ViewModel
-        "记忆已记录：[$category] ${content.take(100)}"
+        val importance = args["importance"]?.jsonPrimitive?.floatOrNull ?: 0.5f
+        withContext(Dispatchers.IO) {
+            dao.insert(
+                MemoryEntity(
+                    content = content,
+                    category = category,
+                    importance = importance.coerceIn(0f, 1f)
+                )
+            )
+        }
+        "记忆已保存：[$category] ${content.take(100)}"
     })
 
     r.register(ToolMetadata(
@@ -37,6 +50,9 @@ fun registerMemoryTools(r: ToolRegistry) {
         category = "memory"
     ), handler = { args ->
         val query = args["query"]?.jsonPrimitive?.content ?: return@register "请提供 query 参数"
-        "搜索记忆：'$query'（实际搜索由 MemoryManager 处理）"
+        val limit = (args["limit"]?.jsonPrimitive?.intOrNull ?: 5).coerceIn(1, 20)
+        val results = withContext(Dispatchers.IO) { dao.search(query, limit) }
+        if (results.isEmpty()) "未找到相关记忆"
+        else results.joinToString("\n") { "[${it.category}] ${it.content}" }
     })
 }

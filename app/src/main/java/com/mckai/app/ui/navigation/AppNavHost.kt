@@ -10,7 +10,8 @@ sealed class Screen(val route: String) {
     object Chat : Screen("chat/{convId}") {
         fun createRoute(convId: Long) = "chat/$convId"
     }
-    object NewChat : Screen("chat/new")
+    // 字面路由与参数路由重叠有歧义（匹配顺序依赖注册序），改为独立前缀
+    object NewChat : Screen("new-chat")
     object Workshop : Screen("workshop")
     object Projects : Screen("projects")
     object ProjectDetail : Screen("project/{projectId}") {
@@ -23,10 +24,13 @@ sealed class Screen(val route: String) {
     object ProviderEdit : Screen("provider/{providerId}") {
         fun createRoute(providerId: String) = "provider/$providerId"
     }
-    object ProviderNew : Screen("provider/new")
+    object ProviderNew : Screen("provider-new")
     object About : Screen("about")
     object Workflow : Screen("workflows")
     object Assistants : Screen("assistants")
+    object AssistantEdit : Screen("assistant/{assistantId}") {
+        fun createRoute(assistantId: Long) = "assistant/$assistantId"
+    }
     object Memory : Screen("memory")
 }
 

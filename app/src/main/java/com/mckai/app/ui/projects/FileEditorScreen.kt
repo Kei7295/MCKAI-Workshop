@@ -1,16 +1,24 @@
 package com.mckai.app.ui.projects
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mckai.app.ui.components.AppleNavBar
+import com.mckai.app.ui.theme.AppleFonts
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileEditorScreen(
     fileId: Long,
@@ -20,25 +28,42 @@ fun FileEditorScreen(
     LaunchedEffect(fileId) { viewModel.load(fileId) }
     val state by viewModel.state.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(state.file?.fileName ?: "编辑") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "返回") } },
-                actions = {
-                    if (!state.saved) {
-                        IconButton(onClick = { viewModel.save() }) { Icon(Icons.Filled.Save, "保存") }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AppleNavBar(
+            title = state.file?.fileName ?: "编辑",
+            onBack = onBack,
+            actions = {
+                if (!state.saved) {
+                    IconButton(onClick = { viewModel.save() }) {
+                        Icon(
+                            Icons.Filled.Save,
+                            "保存",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-            )
-        }
-    ) { padding ->
-        OutlinedTextField(
+            }
+        )
+        // 多行编辑器：external scrolling（BasicTextField 支持光标随滚动同步）
+        BasicTextField(
             value = state.content,
             onValueChange = { viewModel.updateContent(it) },
-            modifier = Modifier.fillMaxSize().padding(padding).padding(8.dp),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            singleLine = false
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            textStyle = TextStyle(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = AppleFonts.Mono,
+                fontSize = 13.sp,
+                lineHeight = 19.sp
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
         )
     }
 }

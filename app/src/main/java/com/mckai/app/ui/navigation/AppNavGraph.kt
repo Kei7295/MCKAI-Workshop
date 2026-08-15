@@ -16,6 +16,8 @@ import com.mckai.app.ui.projects.FileEditorScreen
 import com.mckai.app.ui.settings.SettingsScreen
 import com.mckai.app.ui.settings.ProviderEditScreen
 import com.mckai.app.ui.settings.AboutScreen
+import com.mckai.app.ui.settings.AssistantListScreen
+import com.mckai.app.ui.settings.AssistantEditScreen
 
 @Composable
 fun AppNavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
@@ -72,7 +74,23 @@ fun AppNavGraph(navController: NavHostController, modifier: Modifier = Modifier)
             SettingsScreen(
                 onEditProvider = { id -> navController.navigate(Screen.ProviderEdit.createRoute(id)) },
                 onNewProvider = { navController.navigate(Screen.ProviderNew.route) },
-                onAbout = { navController.navigate(Screen.About.route) }
+                onAbout = { navController.navigate(Screen.About.route) },
+                onAssistants = { navController.navigate(Screen.Assistants.route) }
+            )
+        }
+        composable(Screen.Assistants.route) {
+            AssistantListScreen(
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(Screen.AssistantEdit.createRoute(id)) }
+            )
+        }
+        composable(
+            Screen.AssistantEdit.route,
+            arguments = listOf(navArgument("assistantId") { type = NavType.LongType })
+        ) {
+            AssistantEditScreen(
+                assistantId = it.arguments?.getLong("assistantId") ?: 0L,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

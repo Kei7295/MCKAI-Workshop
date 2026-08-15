@@ -43,6 +43,8 @@ class WorkshopViewModel(application: Application) : AndroidViewModel(application
     val state: StateFlow<WorkshopUiState> = _state.asStateFlow()
 
     private var cancelFlag = false
+    private var buildJob: kotlinx.coroutines.Job? = null
+    private var generatedFiles: Map<String, String> = emptyMap()
 
     init {
         viewModelScope.launch {
@@ -83,43 +85,52 @@ class WorkshopViewModel(application: Application) : AndroidViewModel(application
 
         _state.update { it.copy(step = WorkshopStep.GENERATING, isGenerating = true, log = emptyList(), generatedFiles = emptyMap()) }
         cancelFlag = false
+        generatedFiles = emptyMap()
 
-        viewModelScope.launch {
+        buildJob = viewModelScope.launch {
             val agent = WorkshopAgent(llmClient, toolRegistry)
-            agent.build(spec, s.selectedProvider!!,
-                onProgress = { progress ->
-                    _state.update { it.copy(progress = progress, log = it.log + progress.message) }
-                },
-                isCancelled = { cancelFlag }
-            ).collect { event ->
-                when (event) {
-                    is AgentEvent.TextDelta -> _state.update { it.copy(log = it.log + event.text.take(200)) }
-                    is AgentEvent.ToolResult -> _state.update { it.copy(log = it.log + "[工具] ${event.name}: ${event.result.take(100)}") }
-                    is AgentEvent.Error -> _state.update { it.copy(log = it.log + "错误: ${event.message}") }
-                    is AgentEvent.Done -> {
-                        // Collect files from log parsing
-                        val files = AgentPrompts.parseFileBlocks(_state.value.log.joinToString("\n"))
-                        val success = files.isNotEmpty()
-                        _state.update {
-                            it.copy(
-                                step = WorkshopStep.RESULT,
-                                isGenerating = false,
-                                generatedFiles = files,
-                                success = success,
-                                resultMessage = if (success) "成功生成 ${files.size} 个文件" else "生成完成（无文件）"
-                            )
+            try {
+                agent.build(spec, s.selectedProvider!!,
+                    onProgress = { progress ->
+                        _state.update { it.copy(progress = progress, log = it.log + progress.message) }
+                    },
+                    isCancelled = { cancelFlag }
+                ).collect { event ->
+                    when (event) {
+                        is AgentEvent.TextDelta -> _state.update { it.copy(log = it.log + event.text.take(200)) }
+                        is AgentEvent.ToolResult -> _state.update { it.copy(log = it.log + "[工具] ${event.name}: ${event.result.take(100)}") }
+                        is AgentEvent.Files -> generatedFiles = event.files
+                        is AgentEvent.Error -> _state.update { it.copy(log = it.log + "错误: ${event.message}") }
+                        is AgentEvent.Done -> {
+                            val files = generatedFiles
+                            val success = files.isNotEmpty()
+                            _state.update {
+                                it.copy(
+                                    step = WorkshopStep.RESULT,
+                                    isGenerating = false,
+                                    generatedFiles = files,
+                                    success = success,
+                                    resultMessage = if (success) "成功生成 ${files.size} 个文件" else "生成完成（无文件）"
+                                )
+                            }
+                            if (success) saveProject(spec, files)
                         }
-                        if (success) saveProject(spec, files)
+                        else -> Unit
                     }
-                    else -> Unit
                 }
+            } finally {
+                if (buildJob?.isActive == true) buildJob = null
+                _state.update { it.copy(isGenerating = false) }
             }
         }
     }
 
     fun cancel() {
         cancelFlag = true
-        _state.update { it.copy(isGenerating = false, step = WorkshopStep.RESULT, resultMessage = "已取消") }
+        // 真正取消生成协程：flow 的清理与后续事件随之终止
+        buildJob?.cancel()
+        buildJob = null
+        _state.update { it.copy(isGenerating = false, step = WorkshopStep.RESULT, resultMessage = "已取消", success = false) }
     }
 
     fun reset() {
