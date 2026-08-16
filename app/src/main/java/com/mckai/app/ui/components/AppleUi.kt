@@ -127,6 +127,7 @@ fun AppleNavBar(
 fun AppleLargeTitle(
     title: String,
     subtitle: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -135,22 +136,27 @@ fun AppleLargeTitle(
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
     ) {
-        Text(
-            title,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.3).sp,
-            fontFamily = AppleFonts.Sans,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        if (subtitle != null) {
-            Spacer(Modifier.height(2.dp))
-            Text(
-                subtitle,
-                fontSize = 13.sp,
-                fontFamily = AppleFonts.Sans,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.3).sp,
+                    fontFamily = AppleFonts.Sans,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (subtitle != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        subtitle,
+                        fontSize = 13.sp,
+                        fontFamily = AppleFonts.Sans,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            actions()
         }
     }
 }

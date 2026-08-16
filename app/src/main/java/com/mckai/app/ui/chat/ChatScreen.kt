@@ -1,6 +1,8 @@
 ﻿package com.mckai.app.ui.chat
 
 import androidx.compose.animation.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,13 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mckai.app.data.db.entity.MessageEntity
+import com.mckai.app.data.document.DocumentParser
 import com.mckai.app.data.llm.ToolCallSpec
-import com.mckai.app.ui.components.AppleActionSheet
-import com.mckai.app.ui.components.AppleAlertDialog
-import com.mckai.app.ui.components.AppleNavBar
-import com.mckai.app.ui.components.AppleSheetOption
-import com.mckai.app.ui.components.MarkdownText
+import com.mckai.app.ui.components.*
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -48,6 +48,27 @@ fun ChatScreen(
     var showProviderPicker by remember { mutableStateOf(false) }
     var actionMsg by remember { mutableStateOf<MessageEntity?>(null) }
     val listState = rememberLazyListState()
+
+    // 文档附件（移植自 rikkahub DocumentAsPromptTransformer 思路）：
+    // 选择文件 → 落到缓存 → 解析为文本 → 追加进输入框
+    val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) cursor.getString(idx) else null
+            } else null
+        } ?: "文档"
+        val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val dest = File(context.cacheDir, "attach_${System.currentTimeMillis()}_$safeName")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { input.copyTo(it) }
+        }
+        val parsed = DocumentParser.parse(context, dest)
+        val clipped = if (parsed.length > 20000) parsed.take(20000) + "\n…（内容过长已截断）" else parsed
+        val block = "[文档] $displayName\n$clipped"
+        inputText = if (inputText.isBlank()) block else inputText + "\n\n" + block
+    }
 
     LaunchedEffect(convId) { viewModel.loadConversation(convId) }
 
@@ -168,7 +189,8 @@ fun ChatScreen(
             onTextChange = { inputText = it },
             onSend = { if (viewModel.send(inputText)) inputText = "" },
             onStop = { viewModel.stop() },
-            isGenerating = state.isGenerating
+            isGenerating = state.isGenerating,
+            onAttach = { attachLauncher.launch("*/*") }
         )
     }
 
@@ -518,7 +540,8 @@ fun AppleInputBar(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
-    isGenerating: Boolean
+    isGenerating: Boolean,
+    onAttach: (() -> Unit)? = null
 ) {
     val bgColor = MaterialTheme.colorScheme.surfaceVariant
 
@@ -533,6 +556,21 @@ fun AppleInputBar(
                 .windowInsetsPadding(WindowInsets.ime),
             verticalAlignment = Alignment.Bottom
         ) {
+            if (onAttach != null) {
+                IconButton(
+                    onClick = onAttach,
+                    enabled = !isGenerating,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.AttachFile,
+                        "附加文档（DOCX/PPTX/EPUB/PDF/TXT）",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Spacer(Modifier.width(2.dp))
+            }
             Surface(
                 shape = RoundedCornerShape(22.dp),
                 color = bgColor,

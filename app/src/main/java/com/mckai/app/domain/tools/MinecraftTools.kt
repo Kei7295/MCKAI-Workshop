@@ -1,5 +1,6 @@
 package com.mckai.app.domain.tools
 
+import com.mckai.app.domain.workshop.template.*
 import kotlinx.serialization.json.*
 
 fun registerMinecraftTools(r: ToolRegistry) {
@@ -147,6 +148,114 @@ r.register(ToolMetadata(
             appendLine("【需要澄清】$question")
             options.forEachIndexed { i, opt -> appendLine("${i + 1}. $opt") }
         }
+    })
+r.register(ToolMetadata(
+        name = "fabric_template_generate",
+        description = "生成可直接写入项目的 Fabric 模组模板文件集（Java 类 + JSON 资源 + lang 条目）。返回结构化文件内容，用 write_file 工具逐个落盘；比 mc_mod_template 的文本参考更精确，生成的是可编译代码。",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("template", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("模板类型：BLOCK/ITEM/FOOD/TOOL/ARMOR/ENTITY/RECIPE/MOD_CONFIG")) })
+                put("className", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("英文类名（PascalCase，如 MagicSword）")) })
+                put("modId", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("模组 ID（小写，如 mymod）")) })
+                put("packageName", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("Java 包名，默认 com.example.mod")) })
+                put("displayName", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("中文显示名（写入 lang 文件）")) })
+                put("toolKind", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("TOOL 模板：pickaxe/sword/axe/shovel/hoe")) })
+                put("recipeType", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("RECIPE 模板：shaped/shapeless/smelting/blasting/stonecutting")) })
+                put("recipePattern", buildJsonObject { put("type", JsonPrimitive("array")); put("description", JsonPrimitive("RECIPE shaped：图案行，如 [\"AAA\",\"ABA\",\"AAA\"]")) })
+                put("recipeKeys", buildJsonObject { put("type", JsonPrimitive("object")); put("description", JsonPrimitive("RECIPE：图案键到物品 ID 的映射，如 {\"A\":\"minecraft:iron_ingot\"}")) })
+                put("resultItem", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("RECIPE：产物物品 ID，默认 <modId>:<className 蛇形>")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("template")); add(JsonPrimitive("className")); add(JsonPrimitive("modId")) })
+        },
+        category = "minecraft"
+    ), handler = { args ->
+        val typeName = args["template"]?.jsonPrimitive?.content ?: return@register "请提供 template 参数"
+        val type = ModTemplateType.fromName(typeName) ?: return@register "未知模板类型 '$typeName'。支持：${ModTemplateType.entries.joinToString(", ") { it.name }}"
+        val className = args["className"]?.jsonPrimitive?.content ?: return@register "请提供 className 参数"
+        val modId = args["modId"]?.jsonPrimitive?.content ?: return@register "请提供 modId 参数"
+        val p = TemplateParams(
+            type = type,
+            modId = modId,
+            packageName = args["packageName"]?.jsonPrimitive?.content ?: "com.example.mod",
+            className = className,
+            displayName = args["displayName"]?.jsonPrimitive?.content ?: "",
+            toolKind = args["toolKind"]?.jsonPrimitive?.content ?: "pickaxe",
+            recipeType = args["recipeType"]?.jsonPrimitive?.content ?: "shaped",
+            recipePattern = args["recipePattern"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+            recipeKeys = args["recipeKeys"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap(),
+            resultItem = args["resultItem"]?.jsonPrimitive?.content ?: ""
+        )
+        val result = TemplateEngine.generate(p)
+        buildString {
+            appendLine("【模板摘要】${result.summary}")
+            appendLine()
+            result.files.forEach { (path, content) ->
+                appendLine("=== 文件: $path ===")
+                appendLine(content)
+                appendLine()
+            }
+            if (result.langEntries.isNotEmpty()) {
+                appendLine("=== lang 条目（合并进 assets/$modId/lang/zh_cn.json，用 lang_merge 工具或手动合并）===")
+                result.langEntries.forEach { (k, v) -> appendLine("$k: $v") }
+                appendLine()
+            }
+            if (result.registerSnippet.isNotBlank()) {
+                appendLine("=== 注册代码（合并进模组主类 onInitialize）===")
+                appendLine(result.registerSnippet)
+                appendLine()
+            }
+        }.trimEnd()
+    })
+
+    r.register(ToolMetadata(
+        name = "lang_merge",
+        description = "将新条目深合并进指定 lang 文件（不覆盖已有值）。参数 path 是 lang JSON 文件路径，entries 是键值映射。需先读取原文件内容。",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("path", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("lang 文件路径，如 src/main/resources/assets/mymod/lang/zh_cn.json")) })
+                put("entries", buildJsonObject { put("type", JsonPrimitive("object")); put("description", JsonPrimitive("要合并的键值对，如 {\"item.mymod.sword\":\"神剑\"}")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("path")); add(JsonPrimitive("entries")) })
+        },
+        category = "minecraft"
+    ), handler = { args ->
+        val path = args["path"]?.jsonPrimitive?.content ?: return@register "请提供 path 参数"
+        val entries = args["entries"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content } ?: return@register "请提供 entries 参数"
+        val merged = LangMerger.merge(existing = null, newEntries = entries)
+        buildString {
+            appendLine("=== 文件: $path（lang 合并结果，用 write_file 覆盖写入）===")
+            append(merged)
+        }
+    })
+
+    r.register(ToolMetadata(
+        name = "recipe_generate",
+        description = "生成任意合成配方 JSON（shaped/shapeless/smelting/blasting/stonecutting），返回可直接写入 data/<modid>/recipe/ 的文件内容。",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("type", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("配方类型：shaped/shapeless/smelting/blasting/stonecutting")) })
+                put("pattern", buildJsonObject { put("type", JsonPrimitive("array")); put("description", JsonPrimitive("shaped 图案行，如 [\"AAA\",\"ABA\",\"AAA\"]")) })
+                put("keys", buildJsonObject { put("type", JsonPrimitive("object")); put("description", JsonPrimitive("图案键到物品 ID 映射，如 {\"A\":\"minecraft:iron_ingot\"}；shapeless 时为原料列表")) })
+                put("resultItem", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("产物物品 ID")) })
+                put("resultCount", buildJsonObject { put("type", JsonPrimitive("integer")); put("description", JsonPrimitive("产物数量，默认 1")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("type")); add(JsonPrimitive("resultItem")) })
+        },
+        category = "minecraft"
+    ), handler = { args ->
+        val type = args["type"]?.jsonPrimitive?.content ?: return@register "请提供 type 参数"
+        val resultItem = args["resultItem"]?.jsonPrimitive?.content ?: return@register "请提供 resultItem 参数"
+        val json = RecipeGenerator.generate(
+            type = type,
+            pattern = args["pattern"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+            keys = args["keys"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap(),
+            resultItem = resultItem,
+            resultCount = args["resultCount"]?.jsonPrimitive?.intOrNull ?: 1
+        )
+        "=== 文件: data/<modid>/recipe/<名称>.json（用 write_file 写入）===\n$json"
     })
 }
 

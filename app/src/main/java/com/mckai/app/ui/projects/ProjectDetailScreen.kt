@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mckai.app.domain.workshop.ModEdition
 import com.mckai.app.domain.workshop.ModExporter
 import com.mckai.app.domain.workshop.ModSpec
+import com.mckai.app.domain.workshop.template.ModTemplateType
 import com.mckai.app.ui.components.AppleCard
 import com.mckai.app.ui.components.AppleNavBar
 import com.mckai.app.ui.components.AppleRow
@@ -40,6 +42,23 @@ fun ProjectDetailScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     var exportError by remember { mutableStateOf<String?>(null) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
+
+    if (showTemplateDialog) {
+        TemplateDialog(
+            onDismiss = { showTemplateDialog = false },
+            onConfirm = { type, className, displayName ->
+                showTemplateDialog = false
+                viewModel.generateTemplate(type, className, displayName)
+            }
+        )
+    }
+
+    LaunchedEffect(state.message) {
+        if (state.message != null) {
+            viewModel.clearMessage()
+        }
+    }
 
     Column(
         Modifier
@@ -50,6 +69,18 @@ fun ProjectDetailScreen(
             title = state.project?.name ?: "项目",
             onBack = onBack,
             actions = {
+                IconButton(
+                    onClick = { showTemplateDialog = true },
+                    enabled = state.project != null
+                ) {
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        "添加模板",
+                        tint = if (state.project != null) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 IconButton(
                     onClick = {
                         exportError = null
@@ -106,6 +137,16 @@ fun ProjectDetailScreen(
                     )
                 }
             }
+            state.message?.let { msg ->
+                item {
+                    Text(
+                        msg,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
             state.project?.let { project ->
                 item {
                     AppleCard(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
@@ -154,4 +195,65 @@ fun ProjectDetailScreen(
             }
         }
     }
+}
+
+/** 模板生成对话框（对应 AI 工具 fabric_template_generate 的 UI 版）。 */
+@Composable
+private fun TemplateDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (ModTemplateType, String, String) -> Unit
+) {
+    var selectedType by remember { mutableStateOf(ModTemplateType.ITEM) }
+    var className by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
+    var typeMenuOpen by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("生成模组模板", fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box {
+                    OutlinedButton(
+                        onClick = { typeMenuOpen = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(selectedType.label, modifier = Modifier.weight(1f), textAlign = TextAlign.Start)
+                        Icon(Icons.Filled.ArrowDropDown, null)
+                    }
+                    DropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
+                        ModTemplateType.entries.forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text("${t.label} — ${t.description}") },
+                                onClick = { selectedType = t; typeMenuOpen = false }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = className,
+                    onValueChange = { className = it },
+                    label = { Text("类名（英文 PascalCase，如 MagicSword）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("显示名（中文，写入 lang 文件）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(selectedType, className.trim(), displayName.trim()) },
+                enabled = className.isNotBlank()
+            ) { Text("生成") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
 }

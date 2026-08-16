@@ -3,6 +3,7 @@ package com.mckai.app.domain.tools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
+import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
@@ -95,7 +96,7 @@ fun registerNetworkTools(r: ToolRegistry) {
 
     r.register(ToolMetadata(
         name = "web_search",
-        description = "搜索网页（通过 DuckDuckGo Lite）",
+        description = "搜索网页（DuckDuckGo 完整版：标题+URL+摘要，免费无 key）",
         parameters = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put("properties", buildJsonObject {
@@ -110,27 +111,77 @@ fun registerNetworkTools(r: ToolRegistry) {
         val numResults = (args["num_results"]?.jsonPrimitive?.intOrNull ?: 5).coerceIn(1, 10)
         withContext(Dispatchers.IO) {
             try {
-                val url = "https://lite.duckduckgo.com/lite/?q=${URLEncoder.encode(query, "UTF-8")}"
-                val request = Request.Builder().url(url)
-                    .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) MCKAI/1.0")
+                val form = FormBody.Builder()
+                    .add("q", query).add("b", "").add("kl", "")
+                    .build()
+                val request = Request.Builder()
+                    .url("https://html.duckduckgo.com/html/")
+                    .post(form)
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36")
                     .build()
                 httpClient.newCall(request).execute().use { response ->
                     val html = response.body?.string() ?: "(空响应)"
-                    // Simple extraction of search results
+                    val resultRegex = Regex(
+                        """<h2 class="result__title">[\s\S]*?<a.*?href="([^"]+)".*?>([\s\S]+?)</a>[\s\S]*?</h2>[\s\S]*?<a class="result__snippet".*?>([\s\S]+?)</a>"""
+                    )
                     val results = mutableListOf<String>()
-                    val linkPattern = Regex("""<a[^>]+class="result-link"[^>]*>(.*?)</a>""")
-                    val snippetPattern = Regex("""<td[^>]*class="result-snippet"[^>]*>(.*?)</td>""")
-                    val links = linkPattern.findAll(html).map { it.groupValues[1].replace(Regex("<[^>]+>"), "") }.toList()
-                    val snippets = snippetPattern.findAll(html).map { it.groupValues[1].replace(Regex("<[^>]+>"), "") }.toList()
-                    for (i in links.indices.take(numResults)) {
-                        results.add("${i + 1}. ${links[i]}")
-                        if (i < snippets.size) results.add("   ${snippets[i]}")
+                    for (m in resultRegex.findAll(html)) {
+                        if (results.size >= numResults) break
+                        var link = m.groupValues[1]
+                        if (link.contains("y.js")) continue // 跳过广告
+                        if (link.startsWith("//duckduckgo.com/l/?uddg=")) {
+                            val encoded = link.removePrefix("//duckduckgo.com/l/?uddg=").substringBefore('&')
+                            link = runCatching { java.net.URLDecoder.decode(encoded, "UTF-8") }.getOrDefault(link)
+                        }
+                        val title = m.groupValues[2].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").trim()
+                        val snippet = m.groupValues[3].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").trim()
+                        results.add("${results.size + 1}. $title\n   URL: $link\n   摘要: $snippet")
                     }
-                    if (results.isEmpty()) "未找到搜索结果"
-                    else results.joinToString("\n")
+                    if (results.isEmpty()) "未找到搜索结果（可能被 DuckDuckGo 机器人检测，换个措辞重试）"
+                    else results.joinToString("\n\n")
                 }
             } catch (e: Exception) {
                 "搜索失败：${e.message}"
+            }
+        }
+    })
+
+    r.register(ToolMetadata(
+        name = "web_fetch",
+        description = "抓取网页并剥离标签为纯文本（移除 script/style/nav/header/footer，截断 8000 字符）",
+        parameters = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("url", buildJsonObject { put("type", JsonPrimitive("string")); put("description", JsonPrimitive("要抓取的网页 URL")) })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive("url")) })
+        },
+        category = "network"
+    ), handler = { args ->
+        val url = args["url"]?.jsonPrimitive?.content ?: return@register "请提供 url 参数"
+        validateHttpUrl(url)?.let { return@register it }
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36")
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val html = response.body?.string() ?: "(空响应)"
+                    var text = html
+                        .replace(Regex("(?i)<style[^>]*>[\\s\\S]*?</style>"), " ")
+                        .replace(Regex("(?i)<script[^>]*>[\\s\\S]*?</script>"), " ")
+                        .replace(Regex("(?i)<nav[^>]*>[\\s\\S]*?</nav>"), " ")
+                        .replace(Regex("(?i)<header[^>]*>[\\s\\S]*?</header>"), " ")
+                        .replace(Regex("(?i)<footer[^>]*>[\\s\\S]*?</footer>"), " ")
+                        .replace(Regex("<[^>]+>"), " ")
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                    if (text.length > 8000) text = text.take(8000) + "... [内容已截断]"
+                    if (text.isBlank()) "页面无可读文本内容" else text
+                }
+            } catch (e: Exception) {
+                "抓取失败：${e.message}"
             }
         }
     })

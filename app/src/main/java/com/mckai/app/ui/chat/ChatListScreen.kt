@@ -1,5 +1,7 @@
 package com.mckai.app.ui.chat
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,7 +36,31 @@ fun ChatListScreen(
     viewModel: ChatListViewModel = viewModel()
 ) {
     val conversations by viewModel.conversations.collectAsState()
+    val backupMessage by viewModel.backupMessage.collectAsState()
     var showRenameDialog by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    val context = LocalContext.current
+
+    // 导入备份：读取 JSON → 恢复为全新会话
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        if (text != null) viewModel.importConversation(text)
+    }
+
+    // 导出备份：先取目标 URI，再从库中序列化该会话
+    var pendingExport by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val pending = pendingExport ?: return@rememberLauncherForActivityResult
+        if (uri != null) {
+            viewModel.exportConversation(pending.first) { json ->
+                if (json != null) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                }
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -42,8 +69,28 @@ fun ChatListScreen(
     ) {
         AppleLargeTitle(
             title = "对话",
-            subtitle = "${conversations.size} 个会话"
+            subtitle = "${conversations.size} 个会话",
+            actions = {
+                IconButton(onClick = { importLauncher.launch("*/*") }) {
+                    Icon(
+                        Icons.Filled.FileUpload,
+                        "导入对话备份",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         )
+
+        backupMessage?.let { msg ->
+            Text(
+                msg,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+            )
+            LaunchedEffect(msg) { kotlinx.coroutines.delay(3000); viewModel.clearBackupMessage() }
+        }
         // New chat action (replaces FAB)
         Row(
             modifier = Modifier
@@ -125,6 +172,15 @@ fun ChatListScreen(
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        IconButton(
+                            onClick = {
+                                pendingExport = conv.id to conv.title
+                                exportLauncher.launch("对话-${conv.title}.json")
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(Icons.Filled.FileDownload, "导出备份", modifier = Modifier.size(17.dp))
                         }
                         IconButton(
                             onClick = { showRenameDialog = conv.id to conv.title },

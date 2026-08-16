@@ -1,5 +1,7 @@
 package com.mckai.app.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,10 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mckai.app.data.character.CharacterCard
+import com.mckai.app.data.character.CharacterCardRepository
 import com.mckai.app.ui.components.AppleAvatar
 import com.mckai.app.ui.components.AppleCard
 import com.mckai.app.ui.components.AppleField
@@ -41,6 +46,34 @@ fun AssistantEditScreen(
     var toolsEnabled by remember { mutableStateOf(existing?.toolsEnabled ?: true) }
     var memoryEnabled by remember { mutableStateOf(existing?.memoryEnabled ?: false) }
     var showPresets by remember { mutableStateOf(false) }
+    var cardMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+
+    // 角色卡导入（Tavern v2 JSON 或 PNG 尾部 JSON）：解析后回填表单
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@rememberLauncherForActivityResult
+        val card = CharacterCardRepository.parseBytes(bytes)
+        if (card != null) {
+            val assistant = CharacterCardRepository.toAssistant(card)
+            name = assistant.name
+            systemPrompt = assistant.systemPrompt
+            description = assistant.description ?: ""
+            toolsEnabled = assistant.toolsEnabled
+            memoryEnabled = false
+            cardMessage = "已导入角色卡：${card.name}"
+        } else {
+            cardMessage = "角色卡解析失败（需 Tavern v2 JSON 或 PNG 角色卡）"
+        }
+    }
+    // 角色卡导出：当前表单 → Tavern v2 JSON
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val card = CharacterCard(name = name, description = description, systemPrompt = systemPrompt)
+        val json = CharacterCardRepository.toTavernJson(card)
+        context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+        cardMessage = "已导出角色卡"
+    }
 
     // 新建页（assistantId==0）不需要回填；编辑页等待数据加载后填充一次
     LaunchedEffect(existing) {
@@ -62,8 +95,26 @@ fun AssistantEditScreen(
     ) {
         AppleNavBar(
             title = if (assistantId > 0) "编辑助手" else "新建助手",
-            onBack = onBack
+            onBack = onBack,
+            actions = {
+                IconButton(onClick = { importLauncher.launch("*/*") }) {
+                    Icon(Icons.Filled.FileOpen, "导入角色卡", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = { exportLauncher.launch("${name.ifBlank { "角色卡" }}.json") }) {
+                    Icon(Icons.Filled.FileDownload, "导出角色卡", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
         )
+
+        cardMessage?.let { msg ->
+            Text(
+                msg,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        }
 
         Column(
             Modifier

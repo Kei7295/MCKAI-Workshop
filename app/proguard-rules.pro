@@ -13,3 +13,9 @@
 
 # Room entities accessed via generated implementation
 -keep class com.mckai.app.data.db.entity.** { *; }
+
+# pdfbox-android（PDF 文本提取，反射加载字体/编码器）
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.harmony.awt.** { *; }
+-keep class com.tom_roush.harmony.misc.** { *; }
+-dontwarn com.gemalto.jp2.**
