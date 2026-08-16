@@ -35,7 +35,6 @@ desktop_pet/node_modules/
 
 # MCKAI specific
 app/schemas/
-app/proguard-rules.pro
 
 # Third-party reference repos (never commit)
 Apple Copy-1/
