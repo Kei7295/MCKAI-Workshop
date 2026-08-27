@@ -94,3 +94,17 @@ app/src/main/java/com/mckai/app/
 - ChatViewModel：停止不生效（改标志位而非取消协程）→ Job 真实取消
 - Room：无外键约束/无唯一索引 → v4 补全；重复收藏 → IGNORE 冲突策略
 - 路由：`chat/new` 与 `chat/{convId}` pattern 冲突 → 独立字面量 `new-chat` / `provider-new`
+
+## 开源许可与致谢
+
+本项目基于以下开源项目进行开发与参考，特此致谢。各项目分别受其各自许可证保护，
+请在使用本项目及派生作品时遵守对应许可条款。完整声明见根目录 `THIRD_PARTY_NOTICES`。
+
+| 项目 | 作者 | 许可证 | 用途 |
+| --- | --- | --- | --- |
+| [rikkahub](https://github.com/rikkahub/rikkahub) | rikkahub | GNU AGPL-3.0 | UI 与产品架构参考 |
+| [Operit](https://github.com/AAswordman/Operit) | AAswordman | GNU LGPL-3.0 | 功能与实现思路参考 |
+| [ModCrafting](https://github.com/newstarbar/ModCrafting) | newstarbar | MIT | 模组生成 / 工作台功能参考 |
+
+本项目整体遵循 **GNU Affero General Public License v3.0**。许可证原文见根目录 `LICENSE`，
+各第三方项目许可证原文见 `LICENSES/` 目录。
